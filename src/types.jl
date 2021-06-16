@@ -1,8 +1,55 @@
 struct TableRecord
     tag::String
     checksum::UInt32
-    offset::Int
-    length::Int
+    offset::UInt32
+    length::UInt32
+end
+
+@enum PlatformID::UInt16 begin
+    UNICODE   = 0
+    MACINTOSH = 1
+    ISO       = 2
+    WINDOWS   = 3
+    CUSTOM    = 4
+end
+
+@enum EncodingUnicode::UInt16 begin
+    UNICODE_1_0                 = 0
+    UNICODE_1_1                 = 1
+    ISO_IEC_10646               = 2
+    UNICODE_2_0_BMP             = 3
+    UNICODE_2_0_FULL            = 4
+    UNICODE_VARIATION_SEQUENCES = 5
+    UNICODE_FULL                = 6
+end
+
+abstract type CmapSubtable end
+
+struct SequentialMapGroup
+    char_range::UnitRange{UInt32}
+    start_glyph_id::UInt32
+end
+
+const ManyToOneRangeMappings = SequentialMapGroup
+
+struct SegmentedCoverage <: CmapSubtable
+    groups::Vector{SequentialMapGroup}
+end
+
+struct ByteEncodingTable <: CmapSubtable
+    glyph_id_array::Vector{UInt8}
+end
+
+
+struct EncodingRecord
+    platform_id::PlatformID
+    encoding_id::UInt16
+    subtable_offset::UInt32
+end
+
+struct CharToGlyph
+    encoding_records::Vector{EncodingRecord}
+    tables::Dict{Int,CmapSubtable}
 end
 
 struct FontHeader

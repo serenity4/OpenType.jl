@@ -77,22 +77,58 @@ function OpenTypeFont(io::IO)
     end
     table_mappings = Dict(tr.tag => tr for tr in table_records)
 
-    println.(table_records)
-    seek(io, table_mappings["maxp"].offset)
-    maxprofile = MaximumProfile(
-        version_16_dot_16(read(io, UInt32)),
-        (read(io, T) for T in fieldtypes(MaximumProfile)[2:end])...
-    )
+    # head
     seek(io, table_mappings["head"].offset)
     skip(io, 12)
-    read(io, UInt32) == 0x5F0F3CF5 || error("Invalid magic number in font header")
-    FontHeader(
+    read(io, UInt32) == 0x5f0f3cf5 || error("Invalid magic number in font header")
+    head = FontHeader(
         read(io, UInt16),
         read(io, UInt16),
         DateTime(1904, 01, 01) + Dates.Second(read(io, Int64)),
         DateTime(1904, 01, 01) + Dates.Second(read(io, Int64)),
         (read(io, T) for T in fieldtypes(FontHeader)[5:end])...
     )
+
+    # maximum profile
+    seek(io, table_mappings["maxp"].offset)
+    maxp = MaximumProfile(
+        version_16_dot_16(read(io, UInt32)),
+        (read(io, T) for T in fieldtypes(MaximumProfile)[2:end])...
+    )
+
+    # character to glyph map
+    seek(io, table_mappings["cmap"].offset)
+    skip(io, 2)
+    ntables = read(io, UInt16)
+    records = map(1:ntables) do _
+        EncodingRecord(
+            PlatformID(read(io, UInt16)),
+            (read(io, T) for T in fieldtypes(EncodingRecord)[2:3])...
+        )
+    end
+    d = Dict()
+    foreach(records) do rec
+        seek(io, table_mappings["cmap"].offset + rec.subtable_offset)
+        format = read(io, UInt16)
+        table = if format == 0
+            skip(io, 4)
+            ByteEncodingTable([read(io, UInt8) for _ in 1:256])
+        elseif format == 12
+            skip(io, 10)
+            ngroups = read(io, UInt32)
+            groups = map(1:ngroups) do i
+                SequentialMapGroup(
+                    read(io, UInt32):read(io, UInt32),
+                    read(io, UInt32),
+                )
+            end
+            SegmentedCoverage(groups)
+        else
+            return
+        end
+        d[format] = table
+    end
+    cmap = CharToGlyph(records, d)
 end
 
 OpenTypeFont(file::String) = open(io -> OpenTypeFont(io), file)
