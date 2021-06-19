@@ -11,7 +11,7 @@ function padded_length(tr::TableRecord)
     4 * cld(tr.length, 4)
 end
 
-function checksum_head(io::IO, tr::TableRecord, read, adjustment)
+function checksum_head(io::IO, tr::TableRecord, adjustment)
     pos = position(io)
     sum = UInt32(0)
     seek(io, 0)
@@ -24,7 +24,7 @@ function checksum_head(io::IO, tr::TableRecord, read, adjustment)
     0xb1b0afba - sum
 end
 
-function checksum(io::IO, tr::TableRecord, read)
+function checksum(io::IO, tr::TableRecord)
     pos = position(io)
     sum = UInt32(0)
     seek(io, tr.offset)
@@ -35,14 +35,16 @@ function checksum(io::IO, tr::TableRecord, read)
     sum
 end
 
-function correct_endianness(io::IO)
+"""
+Given the input IO, return a read function
+that will convert the input to the right endianness.
+"""
+function correct_endianess(io::IO)
     sfnt = Base.peek(io, UInt32)
     if sfnt == 0x00000100
-        swap_endianness = ENDIAN_BOM == 0x04030201 ? ntoh : ltoh
-        # (io, T) -> swap_endianness(Base.read(io, T))
-        (io, T) -> swap_endianness(Base.read(io, T))
+        SwapStream(io)
     else
-        (io, T) -> Base.read(io, T)
+        io
     end
 end
 
@@ -55,7 +57,7 @@ A specification for OpenType font files is available
 at https://docs.microsoft.com/en-us/typography/opentype/spec/otff
 """
 function OpenTypeFont(io::IO)
-    read = correct_endianness(io)
+    io = correct_endianess(io)
     sfnt = read(io, UInt32)
     sfnt in (0x00010000, 0x4F54544F) || error("Invalid format: unknown SFNT version. Expected 0x00010000 or 0x4F54544F.")
     ntables = read(io, UInt16)
@@ -70,9 +72,9 @@ function OpenTypeFont(io::IO)
             seek(io, tr.offset + 8)
             adjustment = read(io, UInt32)
             seek(io, pos)
-            checksum_head(io, tr, read, adjustment) == adjustment || error(msg)
+            checksum_head(io, tr, adjustment) == adjustment || error(msg)
         else
-            checksum(io, tr, read) == tr.checksum || error(msg)
+            checksum(io, tr) == tr.checksum || error(msg)
         end
     end
     table_mappings = Dict(tr.tag => tr for tr in table_records)
@@ -129,6 +131,69 @@ function OpenTypeFont(io::IO)
         d[format] = table
     end
     cmap = CharToGlyph(records, d)
+
+    seek(io, table_mappings["loca"].offset)
+    head.index_to_loc_format in (0, 1) || error("Index to location format must be either 0 or 1.")
+    T = head.index_to_loc_format == 0 ? UInt16 : UInt32
+    goffsets = map(0:maxp.nglyphs) do i
+        read(io, T)
+    end
+    glengths = goffsets[begin+1:end] .- goffsets[begin:end-1]
+    glyphs = map(goffsets[begin:end-1]) do offset
+        seek(io, table_mappings["glyf"].offset + offset)
+        header = GlyphHeader(
+            (read(io, T) for T in fieldtypes(GlyphHeader))...
+        )
+        data = if header.ncontours ≠ -1
+            end_contour_points = [read(io, UInt16) for _ in 1:header.ncontours]
+
+            # convert to 1-based indexing
+            end_contour_points .+= 1
+
+            instlength = read(io, UInt16)
+            insts = [read(io, UInt8) for _ in 1:instlength]
+            end_idx = end_contour_points[end]
+            flags = SimpleGlyphFlag[]
+            while length(flags) < end_idx
+                flag = SimpleGlyphFlag(read(io, UInt8))
+                push!(flags, flag)
+                if REPEAT_FLAG_BIT in flag
+                    repeat_count = read(io, UInt8)
+                    append!(flags, (flag for _ in 1:repeat_count))
+                end
+            end
+            xoffsets = Int[]
+            foreach(flags) do flag
+                x = if X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT in flag && X_SHORT_VECTOR_BIT ∉ flag
+                    isempty(xoffsets) ? 0 : last(xoffsets)
+                elseif X_SHORT_VECTOR_BIT in flag
+                    val = Int(read(io, UInt8))
+                    X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT in flag ? val : -val
+                else
+                    read(io, Int16)
+                end
+                push!(xoffsets, x)
+            end
+
+            yoffsets = Int[]
+            foreach(flags) do flag
+                y = if Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT in flag && Y_SHORT_VECTOR_BIT ∉ flag
+                    isempty(yoffsets) ? 0 : last(yoffsets)
+                elseif Y_SHORT_VECTOR_BIT in flag
+                    val = Int(read(io, UInt8))
+                    Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT in flag ? val : -val
+                else
+                    read(io, Int16)
+                end
+                push!(yoffsets, y)
+            end
+            GlyphSimple(
+                end_contour_points,
+                GlyphPoint.(collect(zip(cumsum(xoffsets), cumsum(yoffsets))), map(Base.Fix1(in, ON_CURVE_POINT_BIT), flags)),
+            )
+        end
+        Glyph(header, data)
+    end
 end
 
 OpenTypeFont(file::String) = open(io -> OpenTypeFont(io), file)

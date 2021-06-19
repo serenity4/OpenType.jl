@@ -63,6 +63,9 @@ struct FontHeader
     ymax::Int16
     mac_style::UInt16
     min_readable_size::Int16
+    font_direction_hint::Int16
+    index_to_loc_format::Int16
+    glyph_data_format::Int16
 end
 
 struct GlyphHeader
@@ -91,13 +94,39 @@ struct MaximumProfile
     max_component_depth::UInt16
 end
 
-struct GlyphSimple
-    control_points::NTuple{3,Float32}
+abstract type GlyphData end
+
+@bitmask_flag SimpleGlyphFlag::UInt8 begin
+    ON_CURVE_POINT_BIT =                       0x01
+    X_SHORT_VECTOR_BIT =                       0x02
+    Y_SHORT_VECTOR_BIT =                       0x04
+    REPEAT_FLAG_BIT =                          0x08
+    X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT = 0x10
+    Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT = 0x20
+    OVERLAP_SIMPLE_BIT =                       0x40
+    SIMPLE_GLYPH_RESERVED_BIT =                0x80
+end
+
+struct GlyphPoint
+    coords::Tuple{Int,Int}
+    on_curve::Bool
+end
+
+struct GlyphSimple <: GlyphData
+    contour_indices::Vector{Int}
+    points::Vector{GlyphPoint}
+end
+
+Base.show(io::IO, gdata::GlyphSimple) = print(io, "GlyphSimple(", length(gdata.points), " points, ", length(gdata.contour_indices), " indices)")
+
+struct Glyph{D<:GlyphData}
+    header::GlyphHeader
+    data::D
 end
 
 struct OpenTypeFont
-    cmap
-    head
+    cmap::CharToGlyph
+    head::FontHeader
     hhea
     hmtx
     maxp::MaximumProfile
