@@ -8,6 +8,7 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 SwapStreams = "0b152c4a-7e29-418b-9258-223db38db9d9"
 
 [compat]
+SwapStreams = "0.1"
 julia = "1.6"
 
 [extras]
