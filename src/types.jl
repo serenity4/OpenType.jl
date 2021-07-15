@@ -112,6 +112,11 @@ struct GlyphPoint
     on_curve::Bool
 end
 
+"""
+Description of a glyph as a series of quadratic bezier patches.
+
+Bezier patches are implicitly defined using a list of `GlyphPoint`s, where two consecutive off-curve points implicitly define an on-curve point halfway.
+"""
 struct GlyphSimple <: GlyphData
     contour_indices::Vector{Int}
     points::Vector{GlyphPoint}
@@ -133,6 +138,7 @@ struct OpenTypeFont
     name
     os_2
     post
+    glyphs::Vector{Glyph}
 end
 
 struct OpenTypeCollection

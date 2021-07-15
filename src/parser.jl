@@ -162,38 +162,44 @@ function OpenTypeFont(io::IO)
                     append!(flags, (flag for _ in 1:repeat_count))
                 end
             end
-            xoffsets = Int[]
+            xs = Int[]
             foreach(flags) do flag
                 x = if X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT in flag && X_SHORT_VECTOR_BIT ∉ flag
-                    isempty(xoffsets) ? 0 : last(xoffsets)
+                    val = isempty(xs) ? 0 : last(xs)
+                    push!(xs, val)
+                    return
                 elseif X_SHORT_VECTOR_BIT in flag
                     val = Int(read(io, UInt8))
                     X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT in flag ? val : -val
-                else
+                elseif X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT ∉ flag && X_SHORT_VECTOR_BIT ∉ flag
                     read(io, Int16)
                 end
-                push!(xoffsets, x)
+                push!(xs, x + (isempty(xs) ? 0 : last(xs)))
             end
 
-            yoffsets = Int[]
+            ys = Int[]
             foreach(flags) do flag
                 y = if Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT in flag && Y_SHORT_VECTOR_BIT ∉ flag
-                    isempty(yoffsets) ? 0 : last(yoffsets)
+                    val = isempty(ys) ? 0 : last(ys)
+                    push!(ys, val)
+                    return
                 elseif Y_SHORT_VECTOR_BIT in flag
                     val = Int(read(io, UInt8))
                     Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT in flag ? val : -val
-                else
+                elseif Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT ∉ flag && Y_SHORT_VECTOR_BIT ∉ flag
                     read(io, Int16)
                 end
-                push!(yoffsets, y)
+                push!(ys, y + (isempty(ys) ? 0 : last(ys)))
             end
             GlyphSimple(
                 end_contour_points,
-                GlyphPoint.(collect(zip(cumsum(xoffsets), cumsum(yoffsets))), map(Base.Fix1(in, ON_CURVE_POINT_BIT), flags)),
+                GlyphPoint.(collect(zip(xs, ys)), map(Base.Fix1(in, ON_CURVE_POINT_BIT), flags)),
             )
         end
         Glyph(header, data)
     end
+
+    OpenTypeFont(cmap, head, nothing, nothing, maxp, nothing, nothing, nothing, glyphs)
 end
 
 OpenTypeFont(file::String) = open(io -> OpenTypeFont(io), file)
