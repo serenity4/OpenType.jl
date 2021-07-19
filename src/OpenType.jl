@@ -10,7 +10,8 @@ include("bitmasks.jl")
 include("types.jl")
 include("parser.jl")
 
-include("extract.jl")
+include("extraction.jl")
+include("characters.jl")
 
 export
         OpenTypeFont,
