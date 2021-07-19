@@ -72,5 +72,10 @@ OpenTypeFont(juliamono)
         curves = OpenType.curves(glyph)
         @test all(==(3), length.(curves))
     end
+
+    @testset "Character to Glyph mapping" begin
+        @test font['c'] == font.glyphs[626]
+        @test font['\uffff'] == font.glyphs[1]
+    end
 end
 
