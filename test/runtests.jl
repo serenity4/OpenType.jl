@@ -1,5 +1,6 @@
 using OpenType
-using OpenType: GlyphSimple, GlyphHeader, GlyphPoint, Glyph
+using OpenType: GlyphSimple, GlyphHeader, GlyphPoint, Glyph, uncompress, curves, normalize
+using GeometryExperiments
 using Test
 
 const arial = joinpath(@__DIR__, "resources", "arial.ttf")
@@ -13,7 +14,7 @@ OpenTypeFont(juliamono)
     glyph = font.glyphs[64]
     @test glyph.header == GlyphHeader(1, 55, -15, 526, 732)
     @test glyph.data.contour_indices == [26]
-    @test glyph.data.points == [
+    glyph_points = [
         GlyphPoint((186,-15), false),
         GlyphPoint((55,171), false),
         GlyphPoint((55,352), true),
@@ -41,5 +42,35 @@ OpenTypeFont(juliamono)
         GlyphPoint((386,-15), false),
         GlyphPoint((318,-15), true),
     ]
+    @test glyph.data.points == glyph_points
+
+    @testset "Data extraction" begin
+        curves = uncompress(glyph)
+        curve = first(curves)
+        for point in glyph_points
+            @test point.coords in curve
+        end
+        @test first(curve) == Point(55,352)
+        for c in curves
+            @test last(c) == first(c)
+            @test isodd(length(c))
+            for (x, y) in c
+                @test glyph.header.xmin ≤ minimum(x)
+                @test glyph.header.ymin ≤ minimum(y)
+                @test glyph.header.xmax ≥ maximum(x)
+                @test glyph.header.ymax ≥ maximum(y)
+            end
+        end
+
+        ncurves = normalize(curves, glyph)
+        for ncurve in ncurves
+            for point in ncurve
+                @test all(0 .≤ point .≤ 1)
+            end
+        end
+
+        curves = OpenType.curves(glyph)
+        @test all(==(3), length.(curves))
+    end
 end
 

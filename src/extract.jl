@@ -27,7 +27,7 @@ function uncompress(glyph::Glyph)
         # gather contour points including implicit ones
         on_curve = false
         for point in data_points
-            coords = Point(point.coords)
+            coords = point.coords
             if !on_curve && !point.on_curve || on_curve && point.on_curve
                 # there is an implicit on-curve point halfway
                 push!(points, (coords + points[end]) / 2)

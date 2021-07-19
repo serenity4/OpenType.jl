@@ -108,7 +108,7 @@ abstract type GlyphData end
 end
 
 struct GlyphPoint
-    coords::Tuple{Int,Int}
+    coords::Point{2,Int}
     on_curve::Bool
 end
 
