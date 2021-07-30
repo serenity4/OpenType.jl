@@ -1,10 +1,9 @@
 using OpenType
-using OpenType: GlyphSimple, GlyphHeader, GlyphPoint, Glyph, uncompress, curves, normalize
 using GeometryExperiments
 using Test
 
 const arial = joinpath(@__DIR__, "resources", "arial.ttf")
-const juliamono = joinpath(@__DIR__, "resources", "JuliaMono-Regular.ttf")
+const juliamono = joinpath(@__DIR__, "resources", "juliamono-regular.ttf")
 
 OpenTypeFont(juliamono)
 # OpenTypeFont(arial)

@@ -1,0 +1,1 @@
+struct OpenTypeCollection end
