@@ -77,4 +77,3 @@ OpenTypeFont(juliamono)
         @test font['\uffff'] == font.glyphs[1]
     end
 end
-
