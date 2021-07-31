@@ -51,7 +51,7 @@ function Base.parse(io::IO, table_mappings, ::Type{CharToGlyph})
     records = map(1:ntables) do _
         EncodingRecord(
             PlatformID(read(io, UInt16)),
-            (read(io, T) for T in fieldtypes(EncodingRecord)[2:3])...
+            [read(io, T) for T in fieldtypes(EncodingRecord)[2:3]]...
         )
     end
     d = Dict()

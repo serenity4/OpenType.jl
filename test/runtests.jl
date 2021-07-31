@@ -1,11 +1,12 @@
 using OpenType
+using OpenType: HorizontalMetric, VerticalMetric
 using GeometryExperiments
 using Test
 
 const arial = joinpath(@__DIR__, "resources", "arial.ttf")
 const juliamono = joinpath(@__DIR__, "resources", "juliamono-regular.ttf")
 
-OpenTypeFont(juliamono)
+font = OpenTypeFont(juliamono)
 # OpenTypeFont(arial)
 
 @testset "OpenType.jl" begin
@@ -75,5 +76,16 @@ OpenTypeFont(juliamono)
     @testset "Character to Glyph mapping" begin
         @test font['c'] == font.glyphs[626]
         @test font['\uffff'] == font.glyphs[1]
+    end
+
+    @testset "Metrics" begin
+        @test font.hhea.nhmetrics == 8910
+        @test font.vhea.nvmetrics == 4575
+
+        @test first(font.hmtx.metrics) == HorizontalMetric(595, 162)
+        @test last(font.hmtx.metrics) == HorizontalMetric(600, 0)
+
+        @test first(font.vmtx.metrics) == VerticalMetric(1140, 328)
+        @test last(font.vmtx.metrics) == VerticalMetric(1140, 581)
     end
 end

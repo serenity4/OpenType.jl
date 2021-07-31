@@ -1,13 +1,15 @@
 struct OpenTypeFont
     cmap::CharToGlyph
     head::FontHeader
-    hhea
-    hmtx
+    hhea::HorizontalHeader
+    hmtx::HorizontalMetrics
+    vhea::VerticalHeader
+    vmtx::VerticalMetrics
     maxp::MaximumProfile
     name
     os_2
     post
-    glyphs::Vector{Glyph}
+    glyphs::Vector{Union{Nothing,Glyph}}
 end
 
 """
@@ -25,26 +27,31 @@ function Base.parse(io::IO, ::Type{OpenTypeFont})
     entry_selector = read(io, UInt16)
     range_shift = read(io, UInt16)
     table_records = map(_ -> parse(TableRecord, io), 1:ntables)
-    validate(io, table_records)
-    table_mappings = Dict(tr.tag => tr for tr in table_records)
+    nav = TableNavigationMap(table_records)
+    validate(io, nav)
 
     # head
-    seek(io, table_mappings["head"].offset)
-    head = parse(io, FontHeader)
+    head = read_table(Base.Fix2(parse, FontHeader), io, nav["head"])
 
     # maximum profile
-    seek(io, table_mappings["maxp"].offset)
-    maxp = parse(io, MaximumProfile)
+    maxp = read_table(Base.Fix2(parse, MaximumProfile), io, nav["maxp"])
 
     # character to glyph map
-    seek(io, table_mappings["cmap"].offset)
-    cmap = parse(io, table_mappings, CharToGlyph)
+    cmap = read_table(io -> parse(io, nav, CharToGlyph), io, nav["cmap"])
+
+    # index to location
+    loca = read_table(io -> parse(io, IndexToLocation, maxp, head), io, nav["loca"])
 
     # glyphs
-    seek(io, table_mappings["loca"].offset)
-    glyphs = parse_glyphs(io, head, maxp, table_mappings)
+    glyphs = read_table(io -> read_glyphs(io, head, maxp, nav, loca), io, nav["glyf"])
 
-    OpenTypeFont(cmap, head, nothing, nothing, maxp, nothing, nothing, nothing, glyphs)
+    # metrics
+    hhea = read_table(Base.Fix2(parse, HorizontalHeader), io, nav["hhea"])
+    vhea = read_table(Base.Fix2(parse, VerticalHeader), io, nav["vhea"])
+    hmtx = read_table(io -> parse(io, HorizontalMetrics, hhea, maxp), io, nav["hmtx"])
+    vmtx = read_table(io -> parse(io, VerticalMetrics, vhea, maxp), io, nav["vmtx"])
+
+    OpenTypeFont(cmap, head, hhea, hmtx, vhea, vmtx, maxp, nothing, nothing, nothing, glyphs)
 end
 
 OpenTypeFont(file::AbstractString) = open(Base.Fix2(parse, OpenTypeFont), file)

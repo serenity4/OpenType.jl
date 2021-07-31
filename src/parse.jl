@@ -12,7 +12,13 @@ end
 
 version_16_dot_16(version::UInt32) = VersionNumber(version >> 16 + (version & 0x0000ffff) >> 8)
 
+function word_align(size)
+    4 * cld(size, 4)
+end
+
 include("parsing/table_records.jl")
 include("parsing/font_header.jl")
 include("parsing/maximum_profile.jl")
 include("parsing/char_to_glyph.jl")
+include("parsing/metrics.jl")
+include("parsing/loca.jl")

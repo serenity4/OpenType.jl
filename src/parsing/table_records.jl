@@ -10,14 +10,6 @@ function Base.parse(::Type{TableRecord}, io::IO)
     TableRecord(tag, read(io, UInt32), read(io, UInt32), read(io, UInt32))
 end
 
-"""
-Pad a table length so that it respects the four-byte
-alignment requirements of the OpenType format.
-"""
-function padded_length(tr::TableRecord)
-    4 * cld(tr.length, 4)
-end
-
 function checksum_head(io::IO, tr::TableRecord, adjustment)
     pos = position(io)
     sum = UInt32(0)
@@ -42,8 +34,14 @@ function checksum(io::IO, tr::TableRecord)
     sum
 end
 
-function validate(io::IO, table_records)
-    foreach(table_records) do tr
+struct TableNavigationMap
+    map::Dict{String,TableRecord}
+end
+
+TableNavigationMap(records::Vector{TableRecord}) = TableNavigationMap(Dict(rec.tag => rec for rec in records))
+
+function validate(io::IO, nav::TableNavigationMap)
+    foreach(values(nav.map)) do tr
         msg = "Invalid checksum for table $(tr.tag)"
         if tr.tag == "head"
             pos = position(io)
@@ -55,4 +53,17 @@ function validate(io::IO, table_records)
             checksum(io, tr) == tr.checksum || error(msg)
         end
     end
+end
+
+Base.getindex(nav::TableNavigationMap, key) = nav.map[key]
+
+function read_table(f, io::IO, record::TableRecord; length = record.length, offset = 0)
+    seek(io, record.offset + offset)
+    start = position(io)
+    res = f(io)
+    bytes_read = position(io) - start
+    if bytes_read ≠ length
+        error("Table \"$(record.tag)\" (restricted to $(record.offset + offset) → $(record.offset + offset + length)) was not read entirely. Bytes read: $bytes_read, expected: $length.")
+    end
+    res
 end

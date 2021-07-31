@@ -110,70 +110,71 @@ function curves(glyph::Glyph)
     [map(Base.Fix2(split, patch), curves)...;]
 end
 
-function parse_glyphs(io::IO, head::FontHeader, maxp::MaximumProfile, table_mappings)
-    head.index_to_loc_format in (0, 1) || error("Index to location format must be either 0 or 1.")
-    T = head.index_to_loc_format == 0 ? UInt16 : UInt32
-    goffsets = map(0:maxp.nglyphs) do i
-        read(io, T)
-    end
-    glengths = goffsets[begin+1:end] .- goffsets[begin:end-1]
-    glyphs = map(goffsets[begin:end-1]) do offset
-        seek(io, table_mappings["glyf"].offset + offset)
-        header = GlyphHeader(
-            (read(io, T) for T in fieldtypes(GlyphHeader))...
-        )
-        data = if header.ncontours ≠ -1
-            end_contour_points = [read(io, UInt16) for _ in 1:header.ncontours]
-
-            # convert to 1-based indexing
-            end_contour_points .+= 1
-
-            instlength = read(io, UInt16)
-            insts = [read(io, UInt8) for _ in 1:instlength]
-            end_idx = end_contour_points[end]
-            flags = SimpleGlyphFlag[]
-            while length(flags) < end_idx
-                flag = SimpleGlyphFlag(read(io, UInt8))
-                push!(flags, flag)
-                if REPEAT_FLAG_BIT in flag
-                    repeat_count = read(io, UInt8)
-                    append!(flags, (flag for _ in 1:repeat_count))
-                end
-            end
-            xs = Int[]
-            foreach(flags) do flag
-                x = if X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT in flag && X_SHORT_VECTOR_BIT ∉ flag
-                    val = isempty(xs) ? 0 : last(xs)
-                    push!(xs, val)
-                    return
-                elseif X_SHORT_VECTOR_BIT in flag
-                    val = Int(read(io, UInt8))
-                    X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT in flag ? val : -val
-                elseif X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT ∉ flag && X_SHORT_VECTOR_BIT ∉ flag
-                    read(io, Int16)
-                end
-                push!(xs, x + (isempty(xs) ? 0 : last(xs)))
-            end
-
-            ys = Int[]
-            foreach(flags) do flag
-                y = if Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT in flag && Y_SHORT_VECTOR_BIT ∉ flag
-                    val = isempty(ys) ? 0 : last(ys)
-                    push!(ys, val)
-                    return
-                elseif Y_SHORT_VECTOR_BIT in flag
-                    val = Int(read(io, UInt8))
-                    Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT in flag ? val : -val
-                elseif Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT ∉ flag && Y_SHORT_VECTOR_BIT ∉ flag
-                    read(io, Int16)
-                end
-                push!(ys, y + (isempty(ys) ? 0 : last(ys)))
-            end
-            GlyphSimple(
-                end_contour_points,
-                GlyphPoint.(collect(zip(xs, ys)), map(Base.Fix1(in, ON_CURVE_POINT_BIT), flags)),
+function read_glyphs(io::IO, head::FontHeader, maxp::MaximumProfile, nav::TableNavigationMap, loca::IndexToLocation)
+    glyphs = map(glyph_ranges(loca)) do range
+        range.stop == range.start && return nothing
+        read_table(io, nav["glyf"]; offset = range.start, length = range.stop - range.start) do io
+            header = GlyphHeader(
+                (read(io, T) for T in fieldtypes(GlyphHeader))...
             )
+            data = if header.ncontours ≠ -1
+                end_contour_points = [read(io, UInt16) for _ in 1:header.ncontours]
+
+                # convert to 1-based indexing
+                end_contour_points .+= 1
+
+                instlength = read(io, UInt16)
+                insts = [read(io, UInt8) for _ in 1:instlength]
+                end_idx = end_contour_points[end]
+                flags = SimpleGlyphFlag[]
+                while length(flags) < end_idx
+                    flag = SimpleGlyphFlag(read(io, UInt8))
+                    push!(flags, flag)
+                    if REPEAT_FLAG_BIT in flag
+                        repeat_count = read(io, UInt8)
+                        append!(flags, (flag for _ in 1:repeat_count))
+                    end
+                end
+
+                xs = Int[]
+                foreach(flags) do flag
+                    x = if X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT in flag && X_SHORT_VECTOR_BIT ∉ flag
+                        val = isempty(xs) ? 0 : last(xs)
+                        push!(xs, val)
+                        return
+                    elseif X_SHORT_VECTOR_BIT in flag
+                        val = Int(read(io, UInt8))
+                        X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT in flag ? val : -val
+                    elseif X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT ∉ flag && X_SHORT_VECTOR_BIT ∉ flag
+                        read(io, Int16)
+                    end
+                    push!(xs, x + (isempty(xs) ? 0 : last(xs)))
+                end
+
+                ys = Int[]
+                foreach(flags) do flag
+                    y = if Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT in flag && Y_SHORT_VECTOR_BIT ∉ flag
+                        val = isempty(ys) ? 0 : last(ys)
+                        push!(ys, val)
+                        return
+                    elseif Y_SHORT_VECTOR_BIT in flag
+                        val = Int(read(io, UInt8))
+                        Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT in flag ? val : -val
+                    elseif Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT ∉ flag && Y_SHORT_VECTOR_BIT ∉ flag
+                        read(io, Int16)
+                    end
+                    push!(ys, y + (isempty(ys) ? 0 : last(ys)))
+                end
+                GlyphSimple(
+                    end_contour_points,
+                    GlyphPoint.(collect(zip(xs, ys)), map(Base.Fix1(in, ON_CURVE_POINT_BIT), flags)),
+                )
+            end
+            if position(io) % 4 ≠ 0
+                # rest should just be padding zeros
+                @assert all(iszero, read(io, UInt8) for _ in 1:4 - position(io) % 4)
+            end
+            Glyph(header, data)
         end
-        Glyph(header, data)
     end
 end
