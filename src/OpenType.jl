@@ -22,6 +22,7 @@ export
         Glyph, GlyphHeader, GlyphData,
         GlyphSimple, GlyphPoint,
         uncompress, normalize, curves,
+        glyph_index,
 
         OpenTypeFont,
         OpenTypeCollection
