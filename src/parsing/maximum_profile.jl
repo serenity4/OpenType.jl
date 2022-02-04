@@ -16,7 +16,7 @@ struct MaximumProfile
     max_component_depth::UInt16
 end
 
-function Base.parse(io::IO, ::Type{MaximumProfile})
+function Base.read(io::IO, ::Type{MaximumProfile})
     MaximumProfile(
         version_16_dot_16(read(io, UInt32)),
         (read(io, T) for T in fieldtypes(MaximumProfile)[2:end])...

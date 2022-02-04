@@ -13,7 +13,7 @@ struct HorizontalHeader
     nhmetrics::UInt16
 end
 
-function Base.parse(io::IO, ::Type{HorizontalHeader})
+function Base.read(io::IO, ::Type{HorizontalHeader})
     major = read(io, UInt16)
     minor = read(io, UInt16)
     @assert VersionNumber(major, minor) == v"1.0"
@@ -41,7 +41,7 @@ struct VerticalHeader
     nvmetrics::UInt16
 end
 
-function Base.parse(io::IO, ::Type{VerticalHeader})
+function Base.read(io::IO, ::Type{VerticalHeader})
     skip(io, 4)
     VerticalHeader(
         [read(io, T) for T in fieldtypes(VerticalHeader)[1:10]]...,
@@ -62,7 +62,7 @@ end
 
 Base.read(io::IO, ::Type{HorizontalMetric}) = HorizontalMetric(read(io, UInt16), read(io, Int16))
 
-function Base.parse(io::IO, ::Type{HorizontalMetrics}, hhea::HorizontalHeader, maxp::MaximumProfile)
+function Base.read(io::IO, ::Type{HorizontalMetrics}, hhea::HorizontalHeader, maxp::MaximumProfile)
     metrics = [read(io, HorizontalMetric) for _ in 1:hhea.nhmetrics]
     left_side_bearings = [read(io, Int16) for _ in 1:(maxp.nglyphs - hhea.nhmetrics)]
     HorizontalMetrics(metrics, left_side_bearings)
@@ -80,7 +80,7 @@ end
 
 Base.read(io::IO, ::Type{VerticalMetric}) = VerticalMetric(read(io, UInt16), read(io, Int16))
 
-function Base.parse(io::IO, ::Type{VerticalMetrics}, vhea::VerticalHeader, maxp::MaximumProfile)
+function Base.read(io::IO, ::Type{VerticalMetrics}, vhea::VerticalHeader, maxp::MaximumProfile)
     metrics = [read(io, VerticalMetric) for _ in 1:vhea.nvmetrics]
     top_side_bearings = [read(io, Int16) for _ in 1:(maxp.nglyphs - vhea.nvmetrics)]
     VerticalMetrics(metrics, top_side_bearings)

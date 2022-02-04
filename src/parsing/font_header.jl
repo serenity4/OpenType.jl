@@ -14,7 +14,7 @@ struct FontHeader
     glyph_data_format::Int16
 end
 
-function Base.parse(io::IO, ::Type{FontHeader})
+function Base.read(io::IO, ::Type{FontHeader})
     skip(io, 12)
     read(io, UInt32) == 0x5f0f3cf5 || error("Invalid magic number in font header")
     FontHeader(

@@ -3,14 +3,18 @@ module OpenType
 using Dates
 using SwapStreams
 using GeometryExperiments
+using .Meta: isexpr
 
 import Base: ==, isless, &, |, in, xor
+
+const Optional{T} = Union{T,Nothing}
 
 include("bitmasks.jl")
 include("parse.jl")
 include("glyphs.jl")
-include("font.jl")
+include("data.jl")
 include("collection.jl")
+# include("text.jl")
 
 export
         TableRecord,
@@ -20,11 +24,11 @@ export
 
         # glyphs
         Glyph, GlyphHeader, GlyphData,
-        GlyphSimple, GlyphPoint,
+        SimpleGlyph, GlyphPoint,
         uncompress, normalize, curves,
         glyph_index,
 
-        OpenTypeFont,
+        OpenTypeData,
         OpenTypeCollection
 
 

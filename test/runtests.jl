@@ -5,13 +5,15 @@ using Test
 
 const arial = joinpath(@__DIR__, "resources", "arial.ttf")
 const juliamono = joinpath(@__DIR__, "resources", "juliamono-regular.ttf")
+const bodoni_moda = joinpath(@__DIR__, "resources", "bodoni-moda.ttf")
 
-font = OpenTypeFont(juliamono)
-# OpenTypeFont(arial)
+@time data = OpenTypeData(juliamono);
+data = OpenTypeData(arial)
+data = OpenTypeData(bodoni_moda)
 
 @testset "OpenType.jl" begin
-    font = OpenTypeFont(juliamono)
-    glyph = font.glyphs[64]
+    data = OpenTypeData(juliamono)
+    glyph = data.glyphs[64]
     @test glyph.header == GlyphHeader(1, 55, -15, 526, 732)
     @test glyph.data.contour_indices == [26]
     glyph_points = [
@@ -74,18 +76,17 @@ font = OpenTypeFont(juliamono)
     end
 
     @testset "Character to Glyph mapping" begin
-        @test font['c'] == font.glyphs[626]
-        @test font['\uffff'] == font.glyphs[1]
+        @test data['c'] == data.glyphs[626]
     end
 
     @testset "Metrics" begin
-        @test font.hhea.nhmetrics == 8910
-        @test font.vhea.nvmetrics == 4575
+        @test data.hhea.nhmetrics == 8910
+        @test data.vhea.nvmetrics == 4575
 
-        @test first(font.hmtx.metrics) == HorizontalMetric(595, 162)
-        @test last(font.hmtx.metrics) == HorizontalMetric(600, 0)
+        @test first(data.hmtx.metrics) == HorizontalMetric(595, 162)
+        @test last(data.hmtx.metrics) == HorizontalMetric(600, 0)
 
-        @test first(font.vmtx.metrics) == VerticalMetric(1140, 328)
-        @test last(font.vmtx.metrics) == VerticalMetric(1140, 581)
+        @test first(data.vmtx.metrics) == VerticalMetric(1140, 328)
+        @test last(data.vmtx.metrics) == VerticalMetric(1140, 581)
     end
 end
