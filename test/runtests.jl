@@ -8,7 +8,7 @@ const juliamono = joinpath(@__DIR__, "resources", "juliamono-regular.ttf")
 const bodoni_moda = joinpath(@__DIR__, "resources", "bodoni-moda.ttf")
 
 @time data = OpenTypeData(juliamono);
-data = OpenTypeData(arial)
+@time data = OpenTypeData(arial);
 data = OpenTypeData(bodoni_moda)
 
 @testset "OpenType.jl" begin

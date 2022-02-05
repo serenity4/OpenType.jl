@@ -1,5 +1,6 @@
 abstract type BitMask{T<:Unsigned} end
 
+Base.read(io::IO, T::Type{<:BitMask{_T}}) where {_T} = T(read(io, _T))
 Base.broadcastable(x::BitMask) = Ref(x)
 
 function generate_bitmask_flags(type, decl)
@@ -36,35 +37,35 @@ macro bitmask_flag(typedecl, expr)
     Expr(:block, esc.(exs)...)
 end
 
-(&)(a::BitMask, b::BitMask) = error("Bitwise operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
-(|)(a::BitMask, b::BitMask) = error("Bitwise operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
-xor(a::BitMask, b::BitMask) = error("Bitwise operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
-isless(a::BitMask, b::BitMask) = error("Bitwise operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
-(==)(a::BitMask, b::BitMask) = error("Operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
-in(a::BitMask, b::BitMask) = error("Operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
+Base.:(&)(a::BitMask, b::BitMask) = error("Bitwise operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
+Base.:(|)(a::BitMask, b::BitMask) = error("Bitwise operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
+Base.xor(a::BitMask, b::BitMask) = error("Bitwise operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
+Base.isless(a::BitMask, b::BitMask) = error("Bitwise operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
+Base.:(==)(a::BitMask, b::BitMask) = error("Operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
+Base.in(a::BitMask, b::BitMask) = error("Operation not allowed between incompatible bitmasks '$(typeof(a))', '$(typeof(b))'")
 
-(&)(a::T, b::T) where {T <: BitMask} = T(a.val & b.val)
-(|)(a::T, b::T) where {T <: BitMask} = T(a.val | b.val)
-xor(a::T, b::T) where {T <: BitMask} = T(xor(a.val, b.val))
-isless(a::T, b::T) where {T <: BitMask} = isless(a.val, b.val)
-(==)(a::T, b::T) where {T <: BitMask} = a.val == b.val
-in(a::T, b::T) where {T <: BitMask} = a & b == a
+Base.:(&)(a::T, b::T) where {T <: BitMask} = T(a.val & b.val)
+Base.:(|)(a::T, b::T) where {T <: BitMask} = T(a.val | b.val)
+Base.xor(a::T, b::T) where {T <: BitMask} = T(xor(a.val, b.val))
+Base.isless(a::T, b::T) where {T <: BitMask} = isless(a.val, b.val)
+Base.:(==)(a::T, b::T) where {T <: BitMask} = a.val == b.val
+Base.in(a::T, b::T) where {T <: BitMask} = a & b == a
 
-(&)(a::T, b::Integer) where {T <: BitMask} = T(a.val & b)
-(|)(a::T, b::Integer) where {T <: BitMask} = T(a.val | b)
-xor(a::T, b::Integer) where {T <: BitMask} = T(xor(a.val, b))
-isless(a::T, b::Integer) where {T <: BitMask} = isless(a.val, b)
-in(a::T, b::Integer) where {T <: BitMask} = a & b == a
+Base.:(&)(a::T, b::Integer) where {T <: BitMask} = T(a.val & b)
+Base.:(|)(a::T, b::Integer) where {T <: BitMask} = T(a.val | b)
+Base.xor(a::T, b::Integer) where {T <: BitMask} = T(xor(a.val, b))
+Base.isless(a::T, b::Integer) where {T <: BitMask} = isless(a.val, b)
+Base.in(a::T, b::Integer) where {T <: BitMask} = a & b == a
 
-(&)(a::Integer, b::T) where {T <: BitMask} = b & a
-(|)(a::Integer, b::T) where {T <: BitMask} = b | a
-xor(a::Integer, b::T) where {T <: BitMask} = xor(b, a)
-isless(a::Integer, b::T) where {T <: BitMask} = isless(a, b.val) # need b.val to prevent stackoverflow
-in(a::Integer, b::T) where {T <: BitMask} = a | b == b
+Base.:(&)(a::Integer, b::T) where {T <: BitMask} = b & a
+Base.:(|)(a::Integer, b::T) where {T <: BitMask} = b | a
+Base.xor(a::Integer, b::T) where {T <: BitMask} = xor(b, a)
+Base.isless(a::Integer, b::T) where {T <: BitMask} = isless(a, b.val) # need b.val to prevent stackoverflow
+Base.in(a::Integer, b::T) where {T <: BitMask} = a | b == b
 
 (::Type{T})(bm::BitMask) where {T <: Integer} = T(bm.val)
 
-convert(T::Type{<:Integer}, bm::BitMask) = T(bm.val)
-convert(T::Type{<:BitMask}, val::Integer) = T(val)
+Base.convert(T::Type{<:Integer}, bm::BitMask) = T(bm.val)
+Base.convert(T::Type{<:BitMask}, val::Integer) = T(val)
 
-typemax(T::Type{<:BitMask{_T}}) where {_T} = T(typemax(_T))
+Base.typemax(T::Type{<:BitMask{_T}}) where {_T} = T(typemax(_T))

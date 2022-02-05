@@ -1,4 +1,6 @@
-struct HorizontalHeader
+@serializable struct HorizontalHeader
+    major_version::UInt16
+    minor_version::UInt16
     ascender::Int16
     descender::Int16
     line_gap::Int16
@@ -9,27 +11,27 @@ struct HorizontalHeader
     caret_slope_rise::Int16
     caret_slope_run::Int16
     caret_offset::Int16
+    reserved_1::Int16
+    reserved_2::Int16
+    reserved_3::Int16
+    reserved_4::Int16
     metric_data_format::Int16
-    nhmetrics::UInt16
+    number_of_h_metrics::UInt16
 end
 
-function Base.read(io::IO, ::Type{HorizontalHeader})
-    major = read(io, UInt16)
-    minor = read(io, UInt16)
-    @assert VersionNumber(major, minor) == v"1.0"
-    hhea = HorizontalHeader(
-        [read(io, T) for T in fieldtypes(HorizontalHeader)[1:10]]...,
-        (skip(io, 8); read(io, Int16)),
-        read(io, UInt16),
-    )
-    @assert hhea.metric_data_format == 0 "Metric data format should be zero, got $(hhea.metric_data_format)"
-    hhea
-end
+"""
+Vertical header.
 
-struct VerticalHeader
-    ascent::Int16
-    descent::Int16
-    line_gap::Int16
+Note that, if the version is 1.0 (0x00010000),
+then `vert_typo_ascender`, `vert_typo_descender`
+and `vert_typo_line_gap` have a meaning of `ascent`,
+`descent` and `line_gap` as described in the [specification](https://docs.microsoft.com/en-us/typography/opentype/spec/vhea#table-format).
+"""
+@serializable struct VerticalHeader
+    version::UInt32
+    vert_typo_ascender::Int16
+    vert_typo_descender::Int16
+    vert_typo_line_gap::Int16
     advance_height_max::Int16
     min_top_side_bearing::Int16
     min_bottom_side_bearing::Int16
@@ -37,20 +39,15 @@ struct VerticalHeader
     caret_slope_rise::Int16
     caret_slope_run::Int16
     caret_offset::Int16
+    reserved_1::Int16
+    reserved_2::Int16
+    reserved_3::Int16
+    reserved_4::Int16
     metric_data_format::Int16
-    nvmetrics::UInt16
+    num_of_long_ver_metrics::UInt16
 end
 
-function Base.read(io::IO, ::Type{VerticalHeader})
-    skip(io, 4)
-    VerticalHeader(
-        [read(io, T) for T in fieldtypes(VerticalHeader)[1:10]]...,
-        (skip(io, 8); read(io, Int16)),
-        read(io, UInt16),
-    )
-end
-
-struct HorizontalMetric
+@serializable struct HorizontalMetric
     advance_width::UInt16
     left_side_bearing::Int16
 end
@@ -60,15 +57,13 @@ struct HorizontalMetrics
     left_side_bearings::Vector{Int16}
 end
 
-Base.read(io::IO, ::Type{HorizontalMetric}) = HorizontalMetric(read(io, UInt16), read(io, Int16))
-
 function Base.read(io::IO, ::Type{HorizontalMetrics}, hhea::HorizontalHeader, maxp::MaximumProfile)
-    metrics = [read(io, HorizontalMetric) for _ in 1:hhea.nhmetrics]
-    left_side_bearings = [read(io, Int16) for _ in 1:(maxp.nglyphs - hhea.nhmetrics)]
+    metrics = [read(io, HorizontalMetric) for _ in 1:hhea.number_of_h_metrics]
+    left_side_bearings = [read(io, Int16) for _ in 1:(maxp.nglyphs - hhea.number_of_h_metrics)]
     HorizontalMetrics(metrics, left_side_bearings)
 end
 
-struct VerticalMetric
+@serializable struct VerticalMetric
     advance_width::UInt16
     top_side_bearing::Int16
 end
@@ -78,10 +73,8 @@ struct VerticalMetrics
     top_side_bearings::Vector{Int16}
 end
 
-Base.read(io::IO, ::Type{VerticalMetric}) = VerticalMetric(read(io, UInt16), read(io, Int16))
-
 function Base.read(io::IO, ::Type{VerticalMetrics}, vhea::VerticalHeader, maxp::MaximumProfile)
-    metrics = [read(io, VerticalMetric) for _ in 1:vhea.nvmetrics]
-    top_side_bearings = [read(io, Int16) for _ in 1:(maxp.nglyphs - vhea.nvmetrics)]
+    metrics = [read(io, VerticalMetric) for _ in 1:vhea.num_of_long_ver_metrics]
+    top_side_bearings = [read(io, Int16) for _ in 1:(maxp.nglyphs - vhea.num_of_long_ver_metrics)]
     VerticalMetrics(metrics, top_side_bearings)
 end

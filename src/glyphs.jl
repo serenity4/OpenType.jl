@@ -1,5 +1,3 @@
-abstract type GlyphData end
-
 @bitmask_flag SimpleGlyphFlag::UInt8 begin
     ON_CURVE_POINT_BIT =                       0x01
     X_SHORT_VECTOR_BIT =                       0x02
@@ -9,25 +7,6 @@ abstract type GlyphData end
     Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT = 0x20
     OVERLAP_SIMPLE_BIT =                       0x40
     SIMPLE_GLYPH_RESERVED_BIT =                0x80
-end
-
-struct GlyphPoint
-    coords::Point{2,Int}
-    on_curve::Bool
-end
-
-"""
-Description of a glyph as a series of quadratic bezier patches.
-
-Bezier patches are implicitly defined using a list of `GlyphPoint`s, where two consecutive off-curve points implicitly define an on-curve point halfway.
-"""
-struct SimpleGlyph <: GlyphData
-    end_pts_of_contours::Vector{UInt16}
-    instruction_length::UInt16
-    instructions::Vector{UInt8}
-    flags::Vector{SimpleGlyphFlag}
-    x_coordinates::Vector{Union{UInt8,Int16}}
-    y_coordinates::Vector{Union{UInt8,Int16}}
 end
 
 """
@@ -41,7 +20,7 @@ these glyphs. The bounding box may or may not be tight.
     default instance of a glyph. For a non-default instance, the bounding
     box should be recomputed from the points after deltas are applied.
 """
-struct GlyphHeader
+@serializable struct GlyphHeader
     ncontours::Int16
     xmin::Int16
     ymin::Int16
@@ -49,7 +28,61 @@ struct GlyphHeader
     ymax::Int16
 end
 
-Base.read(io::IO, ::Type{GlyphHeader}) = GlyphHeader(read(io, Int16), read(io, Int16), read(io, Int16), read(io, Int16), read(io, Int16))
+"""
+Description of a glyph as a series of quadratic bezier patches.
+
+Bezier patches are implicitly defined using a list of glyph points, where two consecutive off-curve points implicitly define an on-curve point halfway.
+"""
+struct SimpleGlyph
+    end_pts_of_contours::Vector{UInt16}
+    instruction_length::UInt16
+    instructions::Vector{UInt8}
+    flags::Vector{SimpleGlyphFlag}
+    x_coordinates::Vector{Union{UInt8,Int16}}
+    y_coordinates::Vector{Union{UInt8,Int16}}
+end
+
+function Base.read(io::IO, ::Type{SimpleGlyph}, header::GlyphHeader)
+    end_pts_of_contours = [read(io, UInt16) for _ in 1:header.ncontours]
+    instruction_length = read(io, UInt16)
+    instructions = [read(io, UInt8) for _ in 1:instruction_length]
+    flags = SimpleGlyphFlag[]
+    logical_flags = SimpleGlyphFlag[]
+    n = last(end_pts_of_contours) + 1
+    while length(logical_flags) < n
+        flag = SimpleGlyphFlag(read(io, UInt8))
+        push!(flags, flag)
+        push!(logical_flags, flag)
+        if REPEAT_FLAG_BIT in flag
+            repeat_count = read(io, UInt8)
+            # Embed the repeat count inside flags to preserve the layout of the data block.
+            push!(flags, SimpleGlyphFlag(repeat_count))
+            append!(logical_flags, flag for _ in 1:repeat_count)
+        end
+    end
+
+    length(logical_flags) == n || error("Number of logical flags inconsistent with the number of contour points as specified by the last member of `end_pts_of_contours`: expected $n logical flags, got $(length(logical_flags)).")
+
+    x_coordinates = Union{UInt8,Int16}[]
+    for flag in logical_flags
+        if X_SHORT_VECTOR_BIT in flag
+            push!(x_coordinates, read(io, UInt8))
+        elseif X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT ∉ flag && X_SHORT_VECTOR_BIT ∉ flag
+            push!(x_coordinates, read(io, Int16))
+        end
+    end
+
+    y_coordinates = Union{UInt8,Int16}[]
+    for flag in logical_flags
+        if Y_SHORT_VECTOR_BIT in flag
+            push!(y_coordinates, read(io, UInt8))
+        elseif Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT ∉ flag && Y_SHORT_VECTOR_BIT ∉ flag
+            push!(y_coordinates, read(io, Int16))
+        end
+    end
+
+    SimpleGlyph(end_pts_of_contours, instruction_length, instructions, flags, x_coordinates, y_coordinates)
+end
 
 @bitmask_flag ComponentGlyphFlag::UInt16 begin
     ARG_1_AND_2_ARE_WORDS = 0x0001
@@ -71,11 +104,78 @@ struct ComponentGlyphTable
     glyph_index::UInt16
     argument_1::Union{UInt8,Int8,UInt16,Int16}
     argument_2::Union{UInt8,Int8,UInt16,Int16}
+    scale::Optional{Union{F2DOT14,NTuple{2,F2DOT14},NTuple{4,F2DOT14}}}
+    num_instr::Optional{UInt16}
+    instr::Optional{Vector{UInt8}}
+end
+
+function Base.read(io::IO, ::Type{ComponentGlyphTable})
+    flags = read(io, ComponentGlyphFlag)
+    glyph_index = read(io, UInt16)
+    argument_1, argument_2 = if ARG_1_AND_2_ARE_WORDS in flags
+        if ARGS_ARE_XY_VALUES in flags
+            read(io, Int16), read(io, Int16)
+        else
+            read(io, UInt16), read(io, UInt16)
+        end
+    else
+        if ARGS_ARE_XY_VALUES in flags
+            read(io, Int8), read(io, Int8)
+        else
+            read(io, UInt8), read(io, UInt8)
+        end
+    end
+    scale = if WE_HAVE_A_SCALE in flags
+        read(io, F2DOT14)
+    elseif WE_HAVE_AN_X_AND_Y_SCALE in flags
+        read(io, F2DOT14), read(io, F2DOT14)
+    elseif WE_HAVE_A_TWO_BY_TWO in flags
+        read(io, F2DOT14), read(io, F2DOT14), read(io, F2DOT14), read(io, F2DOT14)
+    end
+    num_instr = instr = nothing
+    if WE_HAVE_INSTRUCTIONS in flags
+        num_instr = read(io, UInt16)
+        instr = [read(io, UInt8) for _ in 1:num_instr]
+    end
+    ComponentGlyphTable(flags, glyph_index, argument_1, argument_2, scale, num_instr, instr)
+end
+
+struct CompositeGlyph
+    components::Vector{ComponentGlyphTable}
+end
+
+function Base.read(io::IO, ::Type{CompositeGlyph})
+    components = [read(io, ComponentGlyphTable)]
+    c = first(components)
+    while MORE_COMPONENTS in c.flags
+        c = read(io, ComponentGlyphTable)
+        push!(components, c)
+    end
+    CompositeGlyph(components)
 end
 
 struct Glyph
     header::GlyphHeader
-    data::Union{SimpleGlyph,ComponentGlyphTable}
+    data::Union{SimpleGlyph,CompositeGlyph}
+end
+
+struct GlyphTable
+    glyphs::Vector{Union{Nothing,Glyph}}
+end
+
+function Base.read(io::IO, ::Type{GlyphTable}, head::FontHeader, maxp::MaximumProfile, nav::TableNavigationMap, loca::IndexToLocation)
+    glyphs = map(glyph_ranges(loca)) do range
+        range.stop == range.start && return nothing
+        seek(io, nav["glyf"].offset + range.start)
+        header = read(io, GlyphHeader)
+        data = if header.ncontours == -1
+            read(io, CompositeGlyph)
+        else
+            read(io, SimpleGlyph, header)
+        end
+        Glyph(header, data)
+    end
+    GlyphTable(glyphs)
 end
 
 """
@@ -146,63 +246,4 @@ function curves(glyph::Glyph)
     patch = Patch(BezierCurve(), 3)
     curves = normalize(uncompress(glyph), glyph)
     [map(Base.Fix2(split, patch), curves)...;]
-end
-
-function Base.read(io::IO, ::Type{ComponentGlyphTable}, header::GlyphHeader)
-    error("Not implemented.")
-end
-
-function Base.read(io::IO, ::Type{SimpleGlyph}, header::GlyphHeader)
-    end_pts_of_contours = [read(io, UInt16) for _ in 1:header.ncontours]
-    instruction_length = read(io, UInt16)
-    instructions = [read(io, UInt8) for _ in 1:instruction_length]
-    flags = SimpleGlyphFlag[]
-    logical_flags = SimpleGlyphFlag[]
-    while length(logical_flags) < last(end_pts_of_contours) + 1
-        flag = SimpleGlyphFlag(read(io, UInt8))
-        push!(flags, flag)
-        push!(logical_flags, flag)
-        if REPEAT_FLAG_BIT in flag
-            repeat_count = read(io, UInt8)
-            # Embed the repeat count inside flags to preserve the layout of the data block.
-            push!(flags, SimpleGlyphFlag(repeat_count))
-            append!(logical_flags, flag for _ in 1:repeat_count)
-        end
-    end
-
-    length(logical_flags) == last(end_pts_of_contours) + 1 || error("Number of logical flags inconsistent with the number of contour points as specified by the last member of `end_pts_of_contours`: expected $(last(end_pts_of_contours) + 1) logical flags, got $(length(logical_flags)).")
-
-    x_coordinates = Union{UInt8,Int16}[]
-    for flag in logical_flags
-        if X_SHORT_VECTOR_BIT in flag
-            push!(x_coordinates, read(io, UInt8))
-        elseif X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT ∉ flag && X_SHORT_VECTOR_BIT ∉ flag
-            push!(x_coordinates, read(io, Int16))
-        end
-    end
-
-    y_coordinates = Union{UInt8,Int16}[]
-    for flag in logical_flags
-        if Y_SHORT_VECTOR_BIT in flag
-            push!(y_coordinates, read(io, UInt8))
-        elseif Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT ∉ flag && Y_SHORT_VECTOR_BIT ∉ flag
-            push!(y_coordinates, read(io, Int16))
-        end
-    end
-
-    SimpleGlyph(end_pts_of_contours, instruction_length, instructions, flags, x_coordinates, y_coordinates)
-end
-
-function read_glyphs(io::IO, head::FontHeader, maxp::MaximumProfile, nav::TableNavigationMap, loca::IndexToLocation)
-    glyphs = map(glyph_ranges(loca)) do range
-        range.stop == range.start && return nothing
-        seek(io, nav["glyf"].offset + range.start)
-        header = read(io, GlyphHeader)
-        data = if header.ncontours == -1
-            read(io, ComponentGlyphTable, header)
-        else
-            read(io, SimpleGlyph, header)
-        end
-        Glyph(header, data)
-    end
 end

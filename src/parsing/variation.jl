@@ -34,8 +34,8 @@ const Fixed = UInt32
     AXIS_QUALIFIER_RESERVED = 0xfffe
 end
 
-struct VariationAxisRecord
-    tag::String
+@serializable struct VariationAxisRecord
+    tag::String << String([read(io, UInt8) for _ in 1:4])
     min_value::Fixed
     default_value::Fixed
     max_value::Fixed
@@ -50,25 +50,12 @@ struct InstanceRecord
     post_script_name_id::UInt16
 end
 
-struct FontVariationsTable
-    header::FontVariationsHeader
-    axes::Vector{VariationAxisRecord} => header.axis_count
-    instances::Vector{InstanceRecord} => header.instance_count
+function Base.read(io::IO, ::Type{InstanceRecord}, axis_count)
+    InstanceRecord(read(io, UInt16), read(io, UInt16), [read(io, Fixed) for _ in 1:header.axis_count], read(io, UInt16))
 end
 
-function Base.read(io::IO, ::Type{FontVariationsTable})
-    header = read(io, FontVariationsHeader)
-    error("Not yet functional, currently WIP.")
-    axes = [read(io, VariationAxisRecord) for _ in 1:header.axis_count]
-    instances = InstanceRecord[]
-    for i in 1:(header.instance_count + 1)
-        subfamily_name_id = read(io, UInt16)
-        flags = read(io, UInt16)
-        coordinates = map(1:(header.axis_count + 1)) do _
-            read(io, Fixed)
-        end
-        post_script_name_id = read(io, UInt16)
-        push!(instances, InstanceRecord(subfamily_name_id, flags, coordinates, post_script_name_id))
-    end
-    FontVariationsTable(header, axes, instances)
+@serializable struct FontVariationsTable
+    header::FontVariationsHeader
+    axes::Vector{VariationAxisRecord} => header.axis_count
+    instances::Vector{InstanceRecord} << [read(io, InstanceRecord, header.axis_count) for _ in 1:header.instance_count]
 end

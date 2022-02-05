@@ -1,18 +1,18 @@
-struct IndexToLocation{T}
-    offsets::Vector{T}
+struct IndexToLocation
+    offsets::Union{Vector{UInt16}, Vector{UInt32}}
 end
 
-function Base.read(io::IO, ::Type{IndexToLocation{T}}, maxp::MaximumProfile) where {T}
-    offsets = map(0:maxp.nglyphs) do i
-        read(io, T)
-    end
-    IndexToLocation{T}(offsets)
+function Base.read(io::IO, ::Type{IndexToLocation}, T, nglyphs)
+    IndexToLocation([read(io, T) for _ in 0:nglyphs])
 end
 
 function Base.read(io::IO, ::Type{IndexToLocation}, maxp::MaximumProfile, head::FontHeader)
     head.index_to_loc_format in (0, 1) || error("Index to location format must be either 0 or 1.")
-    T = head.index_to_loc_format == 0 ? UInt16 : UInt32
-    read(io, IndexToLocation{T}, maxp)
+    if iszero(head.index_to_loc_format)
+        read(io, IndexToLocation, UInt16, maxp.nglyphs)
+    else
+        read(io, IndexToLocation, UInt32, maxp.nglyphs)
+    end
 end
 
 function glyph_ranges(loca::IndexToLocation)

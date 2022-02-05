@@ -16,7 +16,7 @@ end
 
 function Base.read(io::IO, ::Type{FontHeader})
     skip(io, 12)
-    read(io, UInt32) == 0x5f0f3cf5 || error("Invalid magic number in font header")
+    read(io, UInt32) == 0x5f0f3cf5 || error_invalid_font("Invalid magic number in font header")
     FontHeader(
         read(io, UInt16),
         read(io, UInt16),

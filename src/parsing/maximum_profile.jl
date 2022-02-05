@@ -1,5 +1,5 @@
-struct MaximumProfile
-    version::VersionNumber
+@serializable struct MaximumProfile
+    version::VERSION16DOT16
     nglyphs::UInt16
     max_points::UInt16
     max_contours::UInt16
@@ -14,11 +14,4 @@ struct MaximumProfile
     max_size_of_instructions::UInt16
     max_component_elements::UInt16
     max_component_depth::UInt16
-end
-
-function Base.read(io::IO, ::Type{MaximumProfile})
-    MaximumProfile(
-        version_16_dot_16(read(io, UInt32)),
-        (read(io, T) for T in fieldtypes(MaximumProfile)[2:end])...
-    )
 end
