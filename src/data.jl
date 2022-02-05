@@ -66,29 +66,3 @@ function Base.read(io::SwapStream, ::Type{OpenTypeData})
 end
 
 OpenTypeData(file::AbstractString) = open(Base.Fix2(read, OpenTypeData), file)
-
-Base.getindex(data::OpenTypeData, char::Char) = Glyph(data, char)
-
-function glyph_index(data::OpenTypeData, char::Char; pick_table=first)
-    tables = values(data.cmap.tables)
-    table = pick_table(tables)
-    if table isa ByteEncodingTable
-        return table.glyph_id_array[UInt8(char)] + 1
-    elseif table isa SegmentedCoverage
-        offset = 0
-        char_uint = UInt32(char)
-        for group in table.groups
-            if char_uint in group.char_range
-                return group.start_glyph_id + (char_uint - group.char_range.start) + 1
-            end
-        end
-    else
-        error("Unsupported table type $(typeof(table))")
-    end
-end
-
-Glyph(data::OpenTypeData, char::Char; pick_table=first) = data.glyphs[glyph_index(data, char; pick_table)]
-
-function GeometryExperiments.boundingelement(glyph::Glyph)
-    Scaling(glyph.header.xmax - glyph.header.xmin, glyph.header.ymax - glyph.header.ymin)(PointSet(HyperCube(0.5), Point{2,Float64}))
-end

@@ -78,7 +78,7 @@ data = OpenTypeData(juliamono)
         end
     end
 
-    # @testset "Character to Glyph mapping" begin
-    #     @test font['c'] == font.glyphs[626]
-    # end
+    @testset "Character to Glyph mapping" begin
+        @test font['c'] == font.glyphs[626]
+    end
 end

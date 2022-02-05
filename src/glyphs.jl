@@ -130,6 +130,9 @@ function normalize(outlines, header::GlyphHeader)
     map(points -> transf.(points), outlines)
 end
 
+"""
+Return a list of quadratic Bézier curves corresponding to the glyph's outlines.
+"""
 function curves(glyph::SimpleGlyph)
     patch = Patch(BezierCurve(), 3)
     [[split(outline, patch) for outline in glyph.outlines]...;]

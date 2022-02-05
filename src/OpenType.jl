@@ -18,6 +18,7 @@ include("data.jl")
 include("glyphs.jl")
 # include("text.jl")
 include("font.jl")
+include("char_to_glyph.jl")
 
 export
         Glyph,
