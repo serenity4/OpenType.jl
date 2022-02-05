@@ -16,7 +16,6 @@ include("error.jl")
 include("parse.jl")
 include("glyphs.jl")
 include("data.jl")
-include("collection.jl")
 # include("text.jl")
 
 export
@@ -25,7 +24,6 @@ export
         uncompress, normalize, curves,
 
         OpenTypeData,
-        OpenTypeCollection
 
 
 end
