@@ -40,10 +40,10 @@ function normalized_value(value, axis::VariationAxis)
     remap(default, seg_start.from, seg_end.from, seg_start.to, seg_end.to)
 end
 
-struct FontVariation
-    axes::Vector{VariationAxis}
+struct VariationInfo
+    axes::Dict{String,VariationAxis}
 end
 
-function FontVariation(data::OpenTypeData)
+function VariationInfo(data::OpenTypeData)
     
 end

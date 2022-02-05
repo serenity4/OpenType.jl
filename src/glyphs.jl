@@ -1,201 +1,83 @@
-@bitmask_flag SimpleGlyphFlag::UInt8 begin
-    ON_CURVE_POINT_BIT =                       0x01
-    X_SHORT_VECTOR_BIT =                       0x02
-    Y_SHORT_VECTOR_BIT =                       0x04
-    REPEAT_FLAG_BIT =                          0x08
-    X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT = 0x10
-    Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT = 0x20
-    OVERLAP_SIMPLE_BIT =                       0x40
-    SIMPLE_GLYPH_RESERVED_BIT =                0x80
-end
+const GlyphOutline = Vector{Point{2,Float64}}
 
-"""
-Glyph metadata.
-
-`xmin`, `ymin`, `xmax` and `ymax` describe a bounding box for
-these glyphs. The bounding box may or may not be tight.
-
-!!! warning
-    In a variable font, the bounding box is only representative of the
-    default instance of a glyph. For a non-default instance, the bounding
-    box should be recomputed from the points after deltas are applied.
-"""
-@serializable struct GlyphHeader
-    ncontours::Int16
-    xmin::Int16
-    ymin::Int16
-    xmax::Int16
-    ymax::Int16
-end
-
-"""
-Description of a glyph as a series of quadratic bezier patches.
-
-Bezier patches are implicitly defined using a list of glyph points, where two consecutive off-curve points implicitly define an on-curve point halfway.
-"""
 struct SimpleGlyph
-    end_pts_of_contours::Vector{UInt16}
-    instruction_length::UInt16
-    instructions::Vector{UInt8}
-    flags::Vector{SimpleGlyphFlag}
-    x_coordinates::Vector{Union{UInt8,Int16}}
-    y_coordinates::Vector{Union{UInt8,Int16}}
+    outlines::Vector{GlyphOutline}
 end
 
-function Base.read(io::IO, ::Type{SimpleGlyph}, header::GlyphHeader)
-    end_pts_of_contours = [read(io, UInt16) for _ in 1:header.ncontours]
-    instruction_length = read(io, UInt16)
-    instructions = [read(io, UInt8) for _ in 1:instruction_length]
-    flags = SimpleGlyphFlag[]
-    logical_flags = SimpleGlyphFlag[]
-    n = last(end_pts_of_contours) + 1
-    while length(logical_flags) < n
-        flag = SimpleGlyphFlag(read(io, UInt8))
-        push!(flags, flag)
-        push!(logical_flags, flag)
-        if REPEAT_FLAG_BIT in flag
-            repeat_count = read(io, UInt8)
-            # Embed the repeat count inside flags to preserve the layout of the data block.
-            push!(flags, SimpleGlyphFlag(repeat_count))
-            append!(logical_flags, flag for _ in 1:repeat_count)
-        end
-    end
-
-    length(logical_flags) == n || error("Number of logical flags inconsistent with the number of contour points as specified by the last member of `end_pts_of_contours`: expected $n logical flags, got $(length(logical_flags)).")
-
-    x_coordinates = Union{UInt8,Int16}[]
-    for flag in logical_flags
-        if X_SHORT_VECTOR_BIT in flag
-            push!(x_coordinates, read(io, UInt8))
-        elseif X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT ∉ flag && X_SHORT_VECTOR_BIT ∉ flag
-            push!(x_coordinates, read(io, Int16))
-        end
-    end
-
-    y_coordinates = Union{UInt8,Int16}[]
-    for flag in logical_flags
-        if Y_SHORT_VECTOR_BIT in flag
-            push!(y_coordinates, read(io, UInt8))
-        elseif Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT ∉ flag && Y_SHORT_VECTOR_BIT ∉ flag
-            push!(y_coordinates, read(io, Int16))
-        end
-    end
-
-    SimpleGlyph(end_pts_of_contours, instruction_length, instructions, flags, x_coordinates, y_coordinates)
-end
-
-@bitmask_flag ComponentGlyphFlag::UInt16 begin
-    ARG_1_AND_2_ARE_WORDS = 0x0001
-    ARGS_ARE_XY_VALUES = 0x0002
-    ROUND_XY_TO_GRID = 0x0004
-    WE_HAVE_A_SCALE = 0x0008
-    MORE_COMPONENTS = 0x0020
-    WE_HAVE_AN_X_AND_Y_SCALE = 0x0040
-    WE_HAVE_A_TWO_BY_TWO = 0x0080
-    WE_HAVE_INSTRUCTIONS = 0x0100
-    USE_MY_METRICS = 0x0200
-    OVERLAP_COMPOUND = 0x0400
-    SCALED_COMPONENT_OFFSET = 0x1000
-    RESERVED = 0xe010
-end
-
-struct ComponentGlyphTable
-    flags::ComponentGlyphFlag
+struct CompositeGlyphComponent
     glyph_index::UInt16
-    argument_1::Union{UInt8,Int8,UInt16,Int16}
-    argument_2::Union{UInt8,Int8,UInt16,Int16}
-    scale::Optional{Union{F2DOT14,NTuple{2,F2DOT14},NTuple{4,F2DOT14}}}
-    num_instr::Optional{UInt16}
-    instr::Optional{Vector{UInt8}}
-end
-
-function Base.read(io::IO, ::Type{ComponentGlyphTable})
-    flags = read(io, ComponentGlyphFlag)
-    glyph_index = read(io, UInt16)
-    argument_1, argument_2 = if ARG_1_AND_2_ARE_WORDS in flags
-        if ARGS_ARE_XY_VALUES in flags
-            read(io, Int16), read(io, Int16)
-        else
-            read(io, UInt16), read(io, UInt16)
-        end
-    else
-        if ARGS_ARE_XY_VALUES in flags
-            read(io, Int8), read(io, Int8)
-        else
-            read(io, UInt8), read(io, UInt8)
-        end
-    end
-    scale = if WE_HAVE_A_SCALE in flags
-        read(io, F2DOT14)
-    elseif WE_HAVE_AN_X_AND_Y_SCALE in flags
-        read(io, F2DOT14), read(io, F2DOT14)
-    elseif WE_HAVE_A_TWO_BY_TWO in flags
-        read(io, F2DOT14), read(io, F2DOT14), read(io, F2DOT14), read(io, F2DOT14)
-    end
-    num_instr = instr = nothing
-    if WE_HAVE_INSTRUCTIONS in flags
-        num_instr = read(io, UInt16)
-        instr = [read(io, UInt8) for _ in 1:num_instr]
-    end
-    ComponentGlyphTable(flags, glyph_index, argument_1, argument_2, scale, num_instr, instr)
+    offset::Translation{2,Int16}
+    scale::Scaling{2,Float64}
 end
 
 struct CompositeGlyph
-    components::Vector{ComponentGlyphTable}
+    components::Vector{CompositeGlyphComponent}
 end
 
-function Base.read(io::IO, ::Type{CompositeGlyph})
-    components = [read(io, ComponentGlyphTable)]
-    c = first(components)
-    while MORE_COMPONENTS in c.flags
-        c = read(io, ComponentGlyphTable)
-        push!(components, c)
-    end
-    CompositeGlyph(components)
-end
-
-struct Glyph
-    header::GlyphHeader
-    data::Union{SimpleGlyph,CompositeGlyph}
-end
-
-struct GlyphTable
-    glyphs::Vector{Union{Nothing,Glyph}}
-end
-
-function Base.read(io::IO, ::Type{GlyphTable}, head::FontHeader, maxp::MaximumProfile, nav::TableNavigationMap, loca::IndexToLocation)
-    glyphs = map(glyph_ranges(loca)) do range
-        range.stop == range.start && return nothing
-        seek(io, nav["glyf"].offset + range.start)
-        header = read(io, GlyphHeader)
-        data = if header.ncontours == -1
-            read(io, CompositeGlyph)
-        else
-            read(io, SimpleGlyph, header)
+function logical_flags(glyph::SimpleGlyphTable)
+    n = last(glyph.end_pts_of_contours) + 1
+    i = 1
+    flags = SimpleGlyphFlag[]
+    while length(flags) < n
+        flag = glyph.flags[i]
+        i += 1
+        push!(flags, flag)
+        if REPEAT_FLAG_BIT in flag
+            repeat_count = UInt16(glyph.flags[i])
+            i += 1
+            append!(flags, flag for _ in 1:repeat_count)
         end
-        Glyph(header, data)
     end
-    GlyphTable(glyphs)
+    flags
+end
+
+struct GlyphPointInfo
+    coords::Point{2,Int16}
+    on_curve::Bool
+end
+
+function extract_points(glyph::SimpleGlyphTable)
+    flags = logical_flags(glyph)
+    points = Vector{GlyphPointInfo}(undef, last(glyph.end_pts_of_contours) + 1)
+
+    ix = 1
+    iy = 1
+    for (i, flag) in enumerate(flags)
+        x = if X_SHORT_VECTOR_BIT ∉ flag && X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT in flag
+            i == 1 ? zero(Int16) : points[i-1].coords[1]
+        else
+            offset = Int16(glyph.x_coordinates[ix])
+            ix += 1
+            X_SHORT_VECTOR_BIT in flag && X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR_BIT ∉ flag && (offset = -offset)
+            i == 1 ? offset : points[i-1].coords[1] + offset
+        end
+        y = if Y_SHORT_VECTOR_BIT ∉ flag && Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT in flag
+            i == 1 ? zero(Int16) : points[i-1].coords[2]
+        else
+            offset = Int16(glyph.y_coordinates[iy])
+            iy += 1
+            Y_SHORT_VECTOR_BIT in flag && Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT ∉ flag && (offset = -offset)
+            i == 1 ? offset : points[i-1].coords[2] + offset
+        end
+        points[i] = GlyphPointInfo(Point(x, y), ON_CURVE_POINT_BIT in flag)
+    end
+    points
 end
 
 """
-Extract all quadratic bezier control points explicitly from a glyph.
-
-In OpenType, control points may be stored using an implicit format, where two consecutive points may be marked as off-curve although the curve is quadratic: in this case, it means that there is an implicit control point halfway.
+Extract absolute points from a `SimpleGlyphTable`, applying offsets and materializing implicit points.
 """
-function uncompress(glyph::Glyph)
-    data = glyph.data
-
-    contour_indices = [0; data.contour_indices]
+function SimpleGlyph(glyph::SimpleGlyphTable)
+    contour_indices = [0; glyph.end_pts_of_contours .+ 1]
     ranges = map(zip(contour_indices[begin:end-1], contour_indices[begin+1:end])) do (i, j)
         (i+1):j
     end
+    outlines = GlyphOutline[]
+    for data_points in map(Base.Fix1(getindex, extract_points(glyph)), ranges)
+        points = GlyphOutline()
+        sizehint!(points, length(data_points))
 
-    curves = Vector{Point{2,Float64}}[]
-    for data_points in map(Base.Fix1(getindex, data.points), ranges)
-        points = Point{2,Float64}[]
-
-        # make sure data points define a closed contour
+        # Make sure data points define a closed contour.
         while !(first(data_points).on_curve)
             push!(data_points, popfirst!(data_points))
         end
@@ -204,12 +86,12 @@ function uncompress(glyph::Glyph)
             push!(data_points, first(data_points))
         end
 
-        # gather contour points including implicit ones
+        # Gather contour points including implicit ones.
         on_curve = false
         for point in data_points
             coords = point.coords
             if !on_curve && !point.on_curve || on_curve && point.on_curve
-                # there is an implicit on-curve point halfway
+                # There is an implicit on-curve point halfway.
                 push!(points, (coords + points[end]) / 2)
             end
             push!(points, coords)
@@ -218,32 +100,37 @@ function uncompress(glyph::Glyph)
 
         @assert isodd(length(points)) "Expected an odd number of curve points."
         @assert first(points) == last(points) "Contour is not closed."
-        push!(curves, points)
+        push!(outlines, points)
         on_curve = true
     end
-
-    curves
+    SimpleGlyph(outlines)
 end
 
-function normalize(curves, glyph::Glyph)
-    min = Point(glyph.header.xmin, glyph.header.ymin)
-    max = Point(glyph.header.xmax, glyph.header.ymax)
+function read_glyphs(data::OpenTypeData)
+    (; glyf) = data
+    glyphs = Union{SimpleGlyph, CompositeGlyph}[]
+    for glyph in glyf.glyphs
+        isnothing(glyph) && continue
+        data = glyph.data
+        if data isa SimpleGlyphTable
+            push!(glyphs, SimpleGlyph(data))
+        else
+            error("Composite glyphs not supported yet.")
+        end
+    end
+    glyphs
+end
+
+function normalize(outlines, header::GlyphHeader)
+    min = Point(header.xmin, header.ymin)
+    max = Point(header.xmax, header.ymax)
     from = box(min, max)
     to = box(Point{2,Int16}(0, 0), Point{2,Int16}(1, 1))
     transf = BoxTransform(from, to)
-    map(curves) do points
-        @assert all(min[1] ≤ minimum(getindex.(points, 1)))
-        @assert all(min[2] ≤ minimum(getindex.(points, 2)))
-        @assert all(max[1] ≥ maximum(getindex.(points, 1)))
-        @assert all(max[2] ≥ maximum(getindex.(points, 2)))
-        res = transf.(points)
-        @assert all(p -> all(0 .≤ p .≤ 1), res)
-        res
-    end
+    map(points -> transf.(points), outlines)
 end
 
-function curves(glyph::Glyph)
+function curves(glyph::SimpleGlyph)
     patch = Patch(BezierCurve(), 3)
-    curves = normalize(uncompress(glyph), glyph)
-    [map(Base.Fix2(split, patch), curves)...;]
+    [[split(outline, patch) for outline in glyph.outlines]...;]
 end

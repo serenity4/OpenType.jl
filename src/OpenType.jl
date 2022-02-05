@@ -14,16 +14,16 @@ const F2DOT14 = Int16
 include("bitmasks.jl")
 include("error.jl")
 include("parse.jl")
-include("glyphs.jl")
 include("data.jl")
+include("glyphs.jl")
 # include("text.jl")
+include("font.jl")
 
 export
         Glyph,
-        SimpleGlyph,
-        uncompress, normalize, curves,
+        SimpleGlyphTable,
 
-        OpenTypeData,
+        OpenTypeData, OpenTypeFont
 
 
 end
