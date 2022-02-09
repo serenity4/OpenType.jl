@@ -16,5 +16,14 @@ function Base.read(io::IO, ::Type{IndexToLocation}, maxp::MaximumProfile, head::
 end
 
 function glyph_ranges(loca::IndexToLocation)
-    [start:finish for (start, finish) in zip(loca.offsets[1:end-1], loca.offsets[2:end])]
+    ranges = Vector{UnitRange{UInt32}}(undef, length(loca.offsets) - 1)
+    for i in 1:length(ranges)
+        range = if eltype(loca.offsets) === UInt16
+            UInt32(2 * loca.offsets[i]):UInt32(2 * loca.offsets[i+1])
+        else
+            loca.offsets[i]:loca.offsets[i+1]
+        end
+        ranges[i] = range
+    end
+    ranges
 end

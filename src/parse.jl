@@ -61,7 +61,7 @@ function serializable(ex)
         error("Field $(repr(ex)) must be typed.")
     end
 
-    body = Expr(:block)
+    body = Expr(:block, :(__origin__ = position(io)))
     for (var, field) in zip(fieldnames, fields_nolinenums)
         push!(body.args, :($var = $(read_expr(field))))
     end
@@ -88,7 +88,8 @@ where `param_count` can be any expression, which may depend on other structure m
 
 Fields can be read in a custom manner by using a syntax of the form
 `params::SomeField << ex` where `ex` can be e.g. `read(io, SomeField, other_field.length)`
-where `other_field` can refer to any previous field in the struct.
+where `other_field` can refer to any previous field in the struct. This expression may
+refer to a special variable `__origin__`, which is the position of the IO before parsing the struct.
 
 # Examples
 
@@ -104,6 +105,18 @@ macro serializable(ex)
     esc(serializable(ex))
 end
 
+"""
+Read a value of type `T` located at an offset from a given start (defaulting
+to the current position), without modifying the stream position.
+"""
+function read_at(io::IO, @nospecialize(T), offset, args...; start = position(io))
+    pos = position(io)
+    seek(io, start + offset)
+    val = read(io, T, args...)
+    seek(io, pos)
+    val
+end
+
 include("parsing/table_records.jl")
 include("parsing/font_header.jl")
 include("parsing/maximum_profile.jl")
@@ -111,4 +124,8 @@ include("parsing/cmap.jl")
 include("parsing/metrics.jl")
 include("parsing/loca.jl")
 include("parsing/glyf.jl")
+include("parsing/coverage.jl")
+include("parsing/classes.jl")
+include("parsing/contextual_tables.jl")
+include("parsing/gpos.jl")
 include("parsing/variation.jl")

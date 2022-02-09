@@ -51,7 +51,7 @@ struct InstanceRecord
 end
 
 function Base.read(io::IO, ::Type{InstanceRecord}, axis_count)
-    InstanceRecord(read(io, UInt16), read(io, UInt16), [read(io, Fixed) for _ in 1:header.axis_count], read(io, UInt16))
+    InstanceRecord(read(io, UInt16), read(io, UInt16), [read(io, Fixed) for _ in 1:axis_count], read(io, UInt16))
 end
 
 @serializable struct FontVariationsTable

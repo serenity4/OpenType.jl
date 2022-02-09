@@ -3,16 +3,19 @@ using OpenType: HorizontalMetric, VerticalMetric, GlyphPointInfo
 using GeometryExperiments
 using Test
 
-const arial = joinpath(@__DIR__, "resources", "arial.ttf")
-const juliamono = joinpath(@__DIR__, "resources", "juliamono-regular.ttf")
-const bodoni_moda = joinpath(@__DIR__, "resources", "bodoni-moda.ttf")
+font_file(filename) = joinpath(@__DIR__, "resources", filename * ".ttf")
+load_font(filename) = OpenTypeData(font_file(filename))
 
-data = OpenTypeData(juliamono)
-# data = OpenTypeData(arial)
-# data = OpenTypeData(bodoni_moda)
+ENV["JULIA_DEBUG"] = "OpenType"
+
+data = load_font("juliamono");
+data = load_font("aceh-darusalam");
+data = load_font("arial");
+data = load_font("bodoni-moda");
+data = load_font("cherolina");
 
 @testset "OpenType.jl" begin
-    data = OpenTypeData(juliamono)
+    data = load_font("juliamono")
     font = OpenTypeFont(data)
 
     @testset "Glyphs" begin
@@ -80,5 +83,11 @@ data = OpenTypeData(juliamono)
 
     @testset "Character to Glyph mapping" begin
         @test font['c'] == font.glyphs[626]
+    end
+
+    @testset "Font loading" begin
+        for f in ["juliamono", "aceh-darusalam", "arial", "bodoni-moda"]
+            load_font("juliamono") isa OpenTypeData
+        end
     end
 end

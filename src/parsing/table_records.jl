@@ -71,11 +71,9 @@ end
 function read_table(f, io::IO, record::TableRecord; length = record.length, offset = 0)
     seek(io, record.offset + offset)
     start = position(io)
+    @debug "Reading table $(record.tag) ($start → $(record.offset + offset + length))"
     res = f(io)
     bytes_read = position(io) - start
-    bytes_read > length && error("Too many bytes read (read $bytes_read, expected $length).")
-    if fld(bytes_read, 4) ≠ fld(length, 4) && record.tag ≠ "cmap"
-        error("Table \"$(record.tag)\" (restricted to $(record.offset + offset) → $(record.offset + offset + length)) was not read entirely. Bytes read: $bytes_read, expected: $length.")
-    end
+    bytes_read > length && error("Too many bytes read for table \"$(record.tag)\" (read $bytes_read, expected $length).")
     res
 end

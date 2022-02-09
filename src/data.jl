@@ -27,6 +27,9 @@ struct OpenTypeData
     # Font variations.
     avar::Optional{AxisVariationsTable}
     fvar::Optional{FontVariationsTable}
+
+    # Advanced typographic tables.
+    gpos::Optional{GlyphPositioningTable}
 end
 
 """
@@ -45,6 +48,7 @@ function Base.read(io::SwapStream, ::Type{OpenTypeData})
     table_directory = read(io, TableDirectory)
     nav = TableNavigationMap(table_directory.table_records)
     validate(io, nav)
+    @debug "Available tables: $(join(getproperty.(values(nav.map), :tag), ", "))"
 
     cmap = read_table(Base.Fix2(read, CharacterToGlyphIndexMappingTable), io, nav, "cmap")::CharacterToGlyphIndexMappingTable
     head = read_table(Base.Fix2(read, FontHeader), io, nav, "head")::FontHeader
@@ -62,7 +66,11 @@ function Base.read(io::SwapStream, ::Type{OpenTypeData})
     avar = read_table(Base.Fix2(read, AxisVariationsTable), io, nav, "avar")
     fvar = read_table(Base.Fix2(read, FontVariationsTable), io, nav, "fvar")
 
-    OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar)
+    # Advanced typographic tables.
+    # gpos = read_table(Base.Fix2(read, GlyphPositioningTable), io, nav, "GPOS")
+    gpos = nothing
+
+    OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gpos)
 end
 
 OpenTypeData(file::AbstractString) = open(Base.Fix2(read, OpenTypeData), file)

@@ -42,14 +42,18 @@ end
     subtable_offset::UInt32
 end
 
-abstract type CmapSubtable end
+abstract type CmapSubtable{N} end
 
-@serializable struct ByteEncodingTable <: CmapSubtable
+Base.read(io::IO, ::Type{CmapSubtable}) = read(io, CmapSubtable{Int(peek(io, UInt16))})
+
+@serializable struct ByteEncodingTable <: CmapSubtable{0}
     format::UInt16
     length::UInt16
     language::UInt16
     glyph_id_array::Vector{UInt8} => 256
 end
+
+Base.read(io::IO, ::Type{CmapSubtable{0}}) = read(io, ByteEncodingTable)
 
 @serializable struct SubHeaderRecord
     first_code::UInt16
@@ -62,7 +66,7 @@ end
 See the reference from [Apple's TrueType](https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html)
 ('cmap' format 2) for more information about this table.
 """
-@serializable struct HighByteMappingThroughTable <: CmapSubtable
+@serializable struct HighByteMappingThroughTable <: CmapSubtable{2}
     format::UInt16
     length::UInt16
     language::UInt16
@@ -71,7 +75,9 @@ See the reference from [Apple's TrueType](https://developer.apple.com/fonts/True
     glyph_id_array::Vector{UInt16} => maximum(sub_header_keys) ÷ 8
 end
 
-@serializable struct SegmentMappingToDeltaValues <: CmapSubtable
+Base.read(io::IO, ::Type{CmapSubtable{2}}) = read(io, HighByteMappingThroughTable)
+
+@serializable struct SegmentMappingToDeltaValues <: CmapSubtable{4}
     format::UInt16
     length::UInt16
     language::UInt16
@@ -87,7 +93,9 @@ end
     glyph_id_array::Vector{UInt16} => segcount_x2 ÷ 2
 end
 
-@serializable struct TrimmedTableMapping <: CmapSubtable
+Base.read(io::IO, ::Type{CmapSubtable{4}}) = read(io, SegmentMappingToDeltaValues)
+
+@serializable struct TrimmedTableMapping <: CmapSubtable{6}
     format::UInt16
     length::UInt16
     language::UInt16
@@ -96,13 +104,15 @@ end
     glyph_id_array::Vector{UInt16} => entry_count
 end
 
+Base.read(io::IO, ::Type{CmapSubtable{6}}) = read(io, TrimmedTableMapping)
+
 @serializable struct SequentialMapGroupRecord
     start_char_code::UInt32
     end_char_chode::UInt32
     start_glyph_id::UInt32
 end
 
-@serializable struct Mixed16And32BitCoverage <: CmapSubtable
+@serializable struct Mixed16And32BitCoverage <: CmapSubtable{8}
     format::UInt16
     reserved::UInt16
     length::UInt32
@@ -112,7 +122,9 @@ end
     groups::SequentialMapGroupRecord
 end
 
-@serializable struct TrimmedArray <: CmapSubtable
+Base.read(io::IO, ::Type{CmapSubtable{8}}) = read(io, Mixed16And32BitCoverage)
+
+@serializable struct TrimmedArray <: CmapSubtable{10}
     format::UInt16
     reserved::UInt16
     length::UInt32
@@ -122,7 +134,9 @@ end
     glyph_id_array::Vector{UInt16} => num_chars
 end
 
-@serializable struct SegmentedCoverage <: CmapSubtable
+Base.read(io::IO, ::Type{CmapSubtable{10}}) = read(io, TrimmedArray)
+
+@serializable struct SegmentedCoverage <: CmapSubtable{12}
     format::UInt16
     reserved::UInt16
     length::UInt32
@@ -130,6 +144,8 @@ end
     num_groups::UInt32
     groups::Vector{SequentialMapGroupRecord} => num_groups
 end
+
+Base.read(io::IO, ::Type{CmapSubtable{12}}) = read(io, SegmentedCoverage)
 
 @serializable struct ConstantMapGroupRecord
     start_char_code::UInt32
@@ -137,7 +153,7 @@ end
     start_glyph_id::UInt32
 end
 
-@serializable struct ManyToOneRangeMappings <: CmapSubtable
+@serializable struct ManyToOneRangeMappings <: CmapSubtable{13}
     format::UInt16
     reserved::UInt16
     length::UInt32
@@ -145,6 +161,8 @@ end
     num_groups::UInt32
     groups::Vector{SequentialMapGroupRecord} => num_groups
 end
+
+Base.read(io::IO, ::Type{CmapSubtable{13}}) = read(io, ManyToOneRangeMappings)
 
 struct VariationSelectorRecord
     # This field is actually typed to UInt24 in OpenType.
@@ -192,13 +210,15 @@ end
     uvs_mappings::Vector{UVSMappingRecord} => num_uvs_mappings
 end
 
-struct UnicodeVariationSequences <: CmapSubtable
+struct UnicodeVariationSequences <: CmapSubtable{14}
     format::UInt16
     length::UInt32
     num_var_selector_records::UInt32
     var_selectors::Vector{VariationSelectorRecord}
     uvs_tables::Vector{Union{DefaultUVSTable,NonDefaultUVSTable}}
 end
+
+Base.read(io::IO, ::Type{CmapSubtable{14}}) = read(io, UnicodeVariationSequences)
 
 function Base.read(io::IO, ::Type{UnicodeVariationSequences})
     pos = position(io)
@@ -219,11 +239,11 @@ function Base.read(io::IO, ::Type{UnicodeVariationSequences})
     UnicodeVariationSequences(format, length, num_var_selector_records, var_selectors, uvs_tables)
 end
 
-struct CharacterToGlyphIndexMappingTable
+@serializable struct CharacterToGlyphIndexMappingTable
     version::UInt16
     num_tables::UInt16
-    encoding_records::Vector{EncodingRecord}
-    subtables::Vector{Any}
+    encoding_records::Vector{EncodingRecord} => num_tables
+    subtables::Vector{CmapSubtable} << [read_at(io, CmapSubtable, rec.subtable_offset; start = __origin__) for rec in encoding_records]
 end
 
 function Base.show(io::IO, cmap::CharacterToGlyphIndexMappingTable)
@@ -237,38 +257,4 @@ function Base.show(io::IO, cmap::CharacterToGlyphIndexMappingTable)
         end
     end
     print(io, ')')
-end
-
-function Base.read(io::IO, ::Type{CharacterToGlyphIndexMappingTable})
-    pos = position(io)
-    version, num_tables = read(io, UInt16), read(io, UInt16)
-    encoding_records = [read(io, EncodingRecord) for _ in 1:num_tables]
-    subtables = []
-    farther_pos = pos
-    for rec in encoding_records
-        seek(io, pos + rec.subtable_offset)
-        format = peek(io, UInt16)
-        if format == 0
-            push!(subtables, read(io, ByteEncodingTable))
-        elseif format == 2
-            push!(subtables, read(io, HighByteMappingThroughTable))
-        elseif format == 4
-            push!(subtables, read(io, SegmentMappingToDeltaValues))
-        elseif format == 6
-            push!(subtables, read(io, TrimmedTableMapping))
-        elseif format == 8
-            push!(subtables, read(io, Mixed16And32BitCoverage))
-        elseif format == 10
-            push!(subtables, read(io, TrimmedArray))
-        elseif format == 12
-            push!(subtables, read(io, SegmentedCoverage))
-        elseif format == 13
-            push!(subtables, read(io, ManyToOneRangeMappings))
-        elseif format == 14
-            push!(subtables, read(io, UnicodeVariationSequences))
-        end
-        farther_pos = max(farther_pos, position(io))
-    end
-    seek(io, farther_pos)
-    CharacterToGlyphIndexMappingTable(version, num_tables, encoding_records, subtables)
 end

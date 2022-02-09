@@ -147,8 +147,8 @@ struct CompositeGlyphTable
 end
 
 function Base.read(io::IO, ::Type{CompositeGlyphTable})
-    components = [read(io, ComponentGlyphTable)]
-    c = first(components)
+    c = read(io, ComponentGlyphTable)
+    components = [c]
     while MORE_COMPONENTS in c.flags
         c = read(io, ComponentGlyphTable)
         push!(components, c)
@@ -166,7 +166,10 @@ struct GlyphTable
 end
 
 function Base.read(io::IO, ::Type{GlyphTable}, head::FontHeader, maxp::MaximumProfile, nav::TableNavigationMap, loca::IndexToLocation)
-    glyphs = map(glyph_ranges(loca)) do range
+    ranges = glyph_ranges(loca)
+    @debug "'loca' data indicates $(length(filter(r -> r.stop ≠ r.start, ranges))) glyph outlines"
+    glyphs = map(ranges) do range
+        # A glyph for which the range is of zero length has no outline.
         range.stop == range.start && return nothing
         seek(io, nav["glyf"].offset + range.start)
         header = read(io, GlyphHeader)
