@@ -1,5 +1,5 @@
 @serializable struct TableRecord
-    tag::String << String([read(io, UInt8) for _ in 1:4])
+    tag::Tag
     checksum::UInt32
     offset::UInt32
     length::UInt32

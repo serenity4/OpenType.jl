@@ -18,3 +18,8 @@ end
     class_range_count::UInt16
     class_range_records::Vector{ClassRangeRecord} => class_range_count
 end
+
+function Base.read(io::IO, ::Type{ClassDefinitionTable})
+    format = peek(io, UInt16)
+    format == 1 ? read(io, ClassDefinitionTableFormat1) : read(io, ClassDefinitionTableFormat2)
+end

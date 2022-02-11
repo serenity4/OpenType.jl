@@ -14,6 +14,7 @@ function read_expr(field)
         T = field.args[2]
         isexpr(T, :curly) && T.args[1] == :Vector && error("Vectors must have a corresponding length.")
         isexpr(T, :curly) && T.args[1] == :NTuple && return :(Tuple(read(io, $(T.args[2]) for _ in 1:$(T.args[3]))))
+        T == :Tag && return :(String([read(io, UInt8) for _ in 1:4]))
         T == :String && error("Strings are not supported yet.")
         return :(read(io, $T))
     elseif isexpr(field, :call) && field.args[1] == :(=>)
@@ -32,6 +33,17 @@ function serializable(ex)
     !isexpr(ex, :struct) && error("Expected a struct definition, got $(repr(ex))")
     typedecl, fields = ex.args[2:3]
     fields = isexpr(fields, :block) ? fields.args : [fields]
+
+    argmeta = Expr[]
+    filter!(fields) do ex
+        if isexpr(ex, :macrocall) && ex.args[1] == Symbol("@arg")
+            push!(argmeta, ex)
+            false
+        else
+            true
+        end
+    end
+
     t = typedecl
     isexpr(t, :(<:)) && (t = first(t.args))
     isexpr(t, :curly) && error("Parametric types are not supported.")
@@ -66,7 +78,13 @@ function serializable(ex)
         push!(body.args, :($var = $(read_expr(field))))
     end
     push!(body.args, :($t($(fieldnames...))))
-    read_f = Expr(:function, :(Base.read(io::IO, ::Type{$t})), body)
+    fdecl = :(Base.read(io::IO, ::Type{$t}))
+    for ex in argmeta
+        if isexpr(ex, :macrocall) && ex.args[1] == Symbol("@arg")
+            push!(fdecl.args, last(ex.args))
+        end
+    end
+    read_f = Expr(:function, fdecl, body)
 
     fields = map(fields) do ex
         isexpr(ex, :call) && return ex.args[2]
@@ -125,6 +143,9 @@ include("parsing/metrics.jl")
 include("parsing/loca.jl")
 include("parsing/glyf.jl")
 include("parsing/coverage.jl")
+include("parsing/script.jl")
+include("parsing/features.jl")
+include("parsing/lookup.jl")
 include("parsing/classes.jl")
 include("parsing/contextual_tables.jl")
 include("parsing/gpos.jl")

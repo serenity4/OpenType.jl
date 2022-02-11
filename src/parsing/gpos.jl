@@ -115,14 +115,18 @@ end
 abstract type GPOSLookupPairAdjustmentTable <: GPOSLookupSubtable{2} end
 
 @serializable struct PairValueRecord
+    @arg value_format_1
+    @arg value_format_2
     second_glyph::UInt16
-    value_record_1::ValueRecord
-    value_record_2::ValueRecord
+    value_record_1::ValueRecord << read(io, ValueRecord, value_format_1)
+    value_record_2::ValueRecord << read(io, ValueRecord, value_format_2)
 end
 
 @serializable struct PairSetTable
+    @arg value_format_1
+    @arg value_format_2
     pair_value_count::UInt16
-    pair_value_record::Vector{PairValueRecord} => pair_value_count
+    pair_value_record::Vector{PairValueRecord} << [read(io, ValueRecord, value_format_1, value_format_2) for _ in 1:pair_value_count]
 end
 
 @serializable struct PairAdjustmentTableFormat1 <: GPOSLookupPairAdjustmentTable
@@ -133,12 +137,14 @@ end
     pair_set_count::UInt16
     pair_set_offsets::Vector{UInt16} => pair_set_count
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
-    pair_set_tables::Vector{PairSetTable} << [read_at(io, PairSetTable, offset; start = __origin__) for offset in pair_set_offsets]
+    pair_set_tables::Vector{PairSetTable} << [read_at(io, PairSetTable, offset, value_format_1, value_format_2; start = __origin__) for offset in pair_set_offsets]
 end
 
 @serializable struct Class2Record
-    value_record_1::ValueRecord
-    value_record_2::ValueRecord
+    @arg value_format_1
+    @arg value_format_2
+    value_record_1::ValueRecord << read(io, ValueRecord, value_format_1)
+    value_record_2::ValueRecord << read(io, ValueRecord, value_format_2)
 end
 
 @serializable struct PairAdjustmentTableFormat2 <: GPOSLookupPairAdjustmentTable
@@ -153,7 +159,7 @@ end
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
     class_def_1_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, class_def_1_offset; start = __origin__)
     class_def_2_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, class_def_2_offset; start = __origin__)
-    class_1_records::Vector{Vector{Class2Record}} << [[read(io, Class2Record) for _ in 1:class_2_count] for _ in 1:class_1_count]
+    class_1_records::Vector{Vector{Class2Record}} << [[read(io, Class2Record, value_format_1, value_format_2) for _ in 1:class_2_count] for _ in 1:class_1_count]
 end
 
 function Base.read(io::IO, ::Type{GPOSLookupSubtable{2}})
@@ -296,7 +302,7 @@ Base.read(io::IO, ::Type{GPOSLookupSubtable{7}}) = read(io, GPOSContextualTable)
 
 Base.read(io::IO, ::Type{GPOSLookupSubtable{8}}) = read(io, GPOSChainedContextualTable)
 
-@serializable struct GPOSLookupTable
+@serializable struct GPOSLookupTable <: LookupTable
     lookup_type::UInt16
     lookup_flag::UInt16
     subtable_count::UInt16
@@ -307,5 +313,7 @@ end
 
 @serializable struct GlyphPositioningTable
     header::GPOSHeader
-    lookup::GPOSLookupTable
+    script_list_table::ScriptListTable << read_at(io, ScriptListTable, header.script_list_offset; start = __origin__)
+    feature_list_table::FeatureListTable << read_at(io, FeatureListTable, header.feature_list_offset; start = __origin__)
+    lookup_list_table::LookupListTable << read_at(io, LookupListTable, header.lookup_list_offset, GPOSLookupTable; start = __origin__)
 end

@@ -67,8 +67,8 @@ function Base.read(io::SwapStream, ::Type{OpenTypeData})
     fvar = read_table(Base.Fix2(read, FontVariationsTable), io, nav, "fvar")
 
     # Advanced typographic tables.
-    # gpos = read_table(Base.Fix2(read, GlyphPositioningTable), io, nav, "GPOS")
-    gpos = nothing
+    gpos = read_table(Base.Fix2(read, GlyphPositioningTable), io, nav, "GPOS")
+    # gpos = nothing
 
     OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gpos)
 end

@@ -27,15 +27,13 @@ end
     instance_size::UInt16
 end
 
-const Fixed = UInt32
-
 @bitmask_flag AxisQualifierFlag::UInt16 begin
     AXIS_QUALIFIER_HIDDEN_AXIS = 0x0001
     AXIS_QUALIFIER_RESERVED = 0xfffe
 end
 
 @serializable struct VariationAxisRecord
-    tag::String << String([read(io, UInt8) for _ in 1:4])
+    tag::Tag
     min_value::Fixed
     default_value::Fixed
     max_value::Fixed

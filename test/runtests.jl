@@ -1,18 +1,19 @@
 using OpenType
-using OpenType: HorizontalMetric, VerticalMetric, GlyphPointInfo
+using OpenType: GlyphPointInfo
 using GeometryExperiments
 using Test
 
 font_file(filename) = joinpath(@__DIR__, "resources", filename * ".ttf")
 load_font(filename) = OpenTypeData(font_file(filename))
 
-ENV["JULIA_DEBUG"] = "OpenType"
+# ENV["JULIA_DEBUG"] = "OpenType"
 
 data = load_font("juliamono");
 data = load_font("aceh-darusalam");
 data = load_font("arial");
 data = load_font("bodoni-moda");
 data = load_font("cherolina");
+data = load_font("jet-brains-mono");
 
 @testset "OpenType.jl" begin
     data = load_font("juliamono")
