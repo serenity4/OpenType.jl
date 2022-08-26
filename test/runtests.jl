@@ -88,7 +88,7 @@ data = load_font("jet-brains-mono");
 
     @testset "Font loading" begin
         for f in ["juliamono", "aceh-darusalam", "arial", "bodoni-moda"]
-            load_font("juliamono") isa OpenTypeData
+            @test isa(load_font(f), OpenTypeData)
         end
     end
-end
+end;

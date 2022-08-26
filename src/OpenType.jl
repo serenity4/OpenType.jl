@@ -3,7 +3,13 @@ module OpenType
 using Dates
 using SwapStreams
 using GeometryExperiments
+using ColorTypes: RGBA
+using Accessors: @set
 using .Meta: isexpr
+
+const GlyphID = UInt16
+const GlyphOffset = Int16
+const Class = UInt16
 
 const Optional{T} = Union{T,Nothing}
 const VERSION16DOT16 = UInt32
@@ -18,11 +24,12 @@ const Tag = String
 include("bitmasks.jl")
 include("error.jl")
 include("parse.jl")
+include("abstractions.jl")
 include("data.jl")
 include("glyphs.jl")
-# include("text.jl")
 include("font.jl")
 include("char_to_glyph.jl")
+include("text.jl")
 
 export
         Glyph,
