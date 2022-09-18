@@ -27,7 +27,7 @@ end
     instance_size::UInt16
 end
 
-@bitmask_flag AxisQualifierFlag::UInt16 begin
+@bitmask AxisQualifierFlag::UInt16 begin
     AXIS_QUALIFIER_HIDDEN_AXIS = 0x0001
     AXIS_QUALIFIER_RESERVED = 0xfffe
 end

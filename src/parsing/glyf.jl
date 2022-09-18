@@ -1,4 +1,4 @@
-@bitmask_flag SimpleGlyphFlag::UInt8 begin
+@bitmask SimpleGlyphFlag::UInt8 begin
     ON_CURVE_POINT_BIT =                       0x01
     X_SHORT_VECTOR_BIT =                       0x02
     Y_SHORT_VECTOR_BIT =                       0x04
@@ -86,7 +86,7 @@ function Base.read(io::IO, ::Type{SimpleGlyphTable}, header::GlyphHeader)
     SimpleGlyphTable(end_pts_of_contours, instruction_length, instructions, flags, x_coordinates, y_coordinates)
 end
 
-@bitmask_flag ComponentGlyphFlag::UInt16 begin
+@bitmask ComponentGlyphFlag::UInt16 begin
     ARG_1_AND_2_ARE_WORDS = 0x0001
     ARGS_ARE_XY_VALUES = 0x0002
     ROUND_XY_TO_GRID = 0x0004

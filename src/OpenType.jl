@@ -6,6 +6,7 @@ using GeometryExperiments
 using ColorTypes: RGBA
 using Accessors: @set
 using .Meta: isexpr
+using BitMasks
 
 const GlyphID = UInt16
 const GlyphOffset = Int16
@@ -21,7 +22,6 @@ const Fixed = UInt32
 "4-byte string."
 const Tag = String
 
-include("bitmasks.jl")
 include("error.jl")
 include("parse.jl")
 include("abstractions.jl")

@@ -1,4 +1,4 @@
-@bitmask_flag FontFlags::UInt16 begin
+@bitmask FontFlags::UInt16 begin
     FONT_BASELINE_Y_ZERO = 0x0000
     FONT_LSB_X_ZERO = 0x0001
     FONT_INSTR_SIZE_DEPENDENT = 0x0002

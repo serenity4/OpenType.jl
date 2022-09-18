@@ -19,7 +19,7 @@ end
     feature_variations_offset::Optional{UInt32} << (minor_version == 1 ? read(io, UInt32) : nothing)
 end
 
-@bitmask_flag ValueFormat::UInt16 begin
+@bitmask ValueFormat::UInt16 begin
     VALUE_FORMAT_X_PLACEMENT = 0x0001
     VALUE_FORMAT_Y_PLACEMENT = 0x0002
     VALUE_FORMAT_X_ADVANCE = 0x0004
