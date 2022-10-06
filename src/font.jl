@@ -1,3 +1,6 @@
+"""
+Structured representation of an OpenType font.
+"""
 struct OpenTypeFont
     cmap::CharacterToGlyphIndexMappingTable
     cmap_subtable_index::Int

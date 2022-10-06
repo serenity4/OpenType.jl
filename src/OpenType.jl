@@ -31,11 +31,7 @@ include("font.jl")
 include("char_to_glyph.jl")
 include("text.jl")
 
-export
-        Glyph,
-        SimpleGlyphTable,
-
-        OpenTypeData, OpenTypeFont
+export OpenTypeFont
 
 
 end

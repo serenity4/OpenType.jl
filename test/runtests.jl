@@ -1,5 +1,5 @@
 using OpenType
-using OpenType: GlyphPointInfo
+using OpenType: OpenTypeData, GlyphPointInfo, GlyphHeader, extract_points
 using GeometryExperiments
 using Test
 
@@ -22,7 +22,7 @@ data = load_font("jet-brains-mono");
     @testset "Glyphs" begin
         glyph = data.glyf.glyphs[64]
         glyph_header = glyph.header
-        @test glyph_header == OpenType.GlyphHeader(1, 55, -15, 526, 732)
+        @test glyph_header == GlyphHeader(1, 55, -15, 526, 732)
         @test glyph.data.end_pts_of_contours == [25]
         glyph_points = [
             GlyphPointInfo((186,-15), false),
@@ -52,7 +52,7 @@ data = load_font("jet-brains-mono");
             GlyphPointInfo((386,-15), false),
             GlyphPointInfo((318,-15), true),
         ]
-        @test OpenType.extract_points(glyph.data) == glyph_points
+        @test extract_points(glyph.data) == glyph_points
 
         @testset "Data extraction" begin
             # Corresponds to data.glyf.glyphs[64] after removing `nothing` elements.
