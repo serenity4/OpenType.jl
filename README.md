@@ -1,7 +1,8 @@
 # OpenType
 
 [![](https://www.repostatus.org/badges/latest/wip.svg)](https://www.repostatus.org/#wip)
-![tests](https://github.com/serenity4/OpenType.jl/workflows/CI/badge.svg)
+[![Build Status](https://github.com/serenity4/OpenType.jl/actions/workflows/Test.yml/badge.svg)](https://github.com/serenity4/OpenType.jl/actions/workflows/Test.yml)
+[![Coverage](https://codecov.io/gh/serenity4/OpenType.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/serenity4/OpenType.jl)
 [![ColPrac: Contributor's Guide on Collaborative Practices for Community Packages](https://img.shields.io/badge/ColPrac-Contributor's%20Guide-blueviolet)](https://github.com/SciML/ColPrac)
 
 Pure Julia library for reading and extracting [OpenType](https://en.wikipedia.org/wiki/OpenType) font data.
