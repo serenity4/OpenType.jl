@@ -19,6 +19,11 @@ jobs:
       - uses: julia-actions/setup-julia@latest
         with:
           version: ${{ matrix.julia-version }}
+      - uses: actions/cache@v3
+        id: Cache Google Fonts data
+        with:
+          path: ~/test/google_fonts
+          key: ${{ runner.OS }}-google-fonts-cache-${{ hashFiles('test/google_fonts/**') }}
       - run: julia --color=yes --project -e 'using Pkg;
                Pkg.Registry.add(Pkg.RegistrySpec(url = "git@github.com:serenity4/Graphics"));
                Pkg.Registry.add(Pkg.RegistrySpec(url = "git@github.com:JuliaRegistries/General"));
