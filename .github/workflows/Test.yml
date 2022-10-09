@@ -24,6 +24,7 @@ jobs:
         with:
           path: ~/test/google_fonts
           key: ${{ runner.OS }}-google-fonts-cache-${{ hashFiles('test/google_fonts/**') }}
+          restore-keys: ${{ runner.os }}-google-fonts-cache-
       - run: julia --color=yes --project -e 'using Pkg;
                Pkg.Registry.add(Pkg.RegistrySpec(url = "git@github.com:serenity4/Graphics"));
                Pkg.Registry.add(Pkg.RegistrySpec(url = "git@github.com:JuliaRegistries/General"));
