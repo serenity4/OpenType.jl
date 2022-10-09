@@ -11,4 +11,4 @@ OpenType specification: https://learn.microsoft.com/en-us/typography/opentype/sp
 
 ## Status
 
-This is currently a work in progress. Potential users are encouraged to look at the tests and at the source code for more information, but know that this library is not yet raedy for use.
+This is currently a work in progress. Curious developers are encouraged to look at the tests and at the source code for more information, but know that this library is not yet ready for use.
