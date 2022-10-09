@@ -20,7 +20,7 @@ function retrieve_google_font_files()
   google_font_files
 end
 
-function load_google_fonts(f, google_font_files; throw = false)
+function load_google_fonts(f, google_font_files; throw = false, progress = true)
   nfonts = sum(length, values(google_font_files))
   @info "Loading Google Fonts..."
   count = 0
@@ -30,8 +30,10 @@ function load_google_fonts(f, google_font_files; throw = false)
   for (font_family, font_files) in sort(collect(google_font_files); by=first)
     for font_file in font_files
       font_name = basename(font_file)
-      print("\r", ' '^120)
-      printstyled("\r $count/$nfonts ($failed failed) $font_name")
+      if progress
+        print("\r", ' '^120)
+        printstyled("\r $count/$nfonts ($failed failed) $font_name")
+      end
       try
         data = OpenTypeData(font_file; verify_checksums = false)
         loaded += 1
@@ -58,9 +60,10 @@ google_font_files = retrieve_google_font_files();
 @testset "Google Fonts" begin
   # Make sure most of them load correctly, later we will check for actual contents.
 
-   success, failed, loaded = load_google_fonts(identity, google_font_files)
+   success, failed, loaded = load_google_fonts(identity, google_font_files; progress = false)
    @test success ≥ 3009
 end
 
 # Uncomment to troubleshoot errors and increase coverage.
 # load_google_fonts(identity, google_font_files; throw = true)
+# load_google_fonts(identity, google_font_files; throw = false)
