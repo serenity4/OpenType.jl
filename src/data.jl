@@ -39,11 +39,23 @@ A specification for OpenType font files is available
 at https://docs.microsoft.com/en-us/typography/opentype/spec/otff
 """
 
-Base.read(io::IOBuffer, ::Type{OpenTypeData}) = read(correct_endianess(io), OpenTypeData)
-Base.read(io::IO, ::Type{OpenTypeData}) = read(IOBuffer(read(io)), OpenTypeData)
+Base.read(io::IOBuffer, ::Type{OpenTypeData}; verify_checksums::Bool = true) = read(correct_endianess(io), OpenTypeData; verify_checksums)
+Base.read(io::IO, ::Type{OpenTypeData}; verify_checksums::Bool = true) = read(IOBuffer(read(io)), OpenTypeData; verify_checksums)
 
-function Base.read(io::Union{SwapStream,TracedIO{<:SwapStream}}, ::Type{OpenTypeData})
+function Base.read(io::Union{SwapStream,TracedIO{<:SwapStream}}, ::Type{OpenTypeData}; verify_checksums::Bool = true)
     table_directory, nav = TableNavigationMap(io)
+    if verify_checksums
+        ret = @__MODULE__().verify_checksums(io, nav)
+        if isa(ret, InvalidFontException)
+            if startswith(ret.msg, "Invalid font checksum")
+                # The master checksum can be allowed to fail.
+                @warn ret.msg
+            else
+                # Table checksums should really not fail.
+                throw(ret)
+            end
+        end
+    end
     read(io, OpenTypeData, table_directory, nav)
 end
 
@@ -52,8 +64,6 @@ function TableNavigationMap(io::Union{SwapStream,TracedIO{<:SwapStream}})
     sfnt in (0x00010000, 0x4F54544F) || error_invalid_font("Invalid format: unknown SFNT version (expected 0x00010000 or 0x4F54544F). The provided IO may not describe an OpenType font, or may describe one that is not conform to the OpenType specification.")
     table_directory = read(io, TableDirectory)
     nav = TableNavigationMap(table_directory.table_records)
-    ret = verify_checksums(io, nav)
-    isa(ret, InvalidFontException) && @warn(ret.msg)
     @debug "Available tables: $(join(getproperty.(values(nav.map), :tag), ", "))"
     table_directory, nav
 end
@@ -81,16 +91,16 @@ function Base.read(io::Union{SwapStream,TracedIO{<:SwapStream}}, ::Type{OpenType
     OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gpos)
 end
 
-function OpenTypeData(file::AbstractString; debug = false)
+function OpenTypeData(file::AbstractString; verify_checksums::Bool = true, debug::Bool = false)
     open(file) do io
         io = correct_endianess(IOBuffer(read(io)))
         if !debug
-            read(io, OpenTypeData)
+            read(io, OpenTypeData; verify_checksums)
         else
             io = TracedIO(io)
             table_directory, nav = TableNavigationMap(io)
-            read(io, OpenTypeData, table_directory, nav)
-            
+            read(io, OpenTypeData)
+
             # TODO: Provide debug information in case of failure based on parsed ranges.
             # try
             #   read(io, OpenTypeData, nav, table_directory)

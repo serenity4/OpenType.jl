@@ -41,19 +41,17 @@ end
     axis_name_id::UInt16
 end
 
-struct InstanceRecord
+@serializable struct InstanceRecord
+    @arg axis_count
+    @arg instance_size
     subfamily_name_id::UInt16
     flags::UInt16
-    coordinates::Vector{Fixed}
-    post_script_name_id::UInt16
-end
-
-function Base.read(io::IO, ::Type{InstanceRecord}, axis_count)
-    InstanceRecord(read(io, UInt16), read(io, UInt16), [read(io, Fixed) for _ in 1:axis_count], read(io, UInt16))
+    coordinates::Vector{Fixed} => axis_count
+    post_script_name_id::Optional{UInt16} << (instance_size == position(io) - __origin__ ? nothing : read(io, UInt16))
 end
 
 @serializable struct FontVariationsTable
     header::FontVariationsHeader
     axes::Vector{VariationAxisRecord} => header.axis_count
-    instances::Vector{InstanceRecord} << [read(io, InstanceRecord, header.axis_count) for _ in 1:header.instance_count]
+    instances::Vector{InstanceRecord} << [read(io, InstanceRecord, header.axis_count, header.instance_size) for _ in 1:header.instance_count]
 end

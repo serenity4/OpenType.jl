@@ -189,15 +189,16 @@ end
 
 @serializable struct BaseRecord
     @arg mark_class_count
+    @arg start_base_array_table
     base_anchor_offsets::Vector{UInt16} => mark_class_count
 
-    base_anchor_tables::Vector{AnchorTable} << [read_at(io, AnchorTable, offset; start = __origin__) for offset in base_anchor_offsets]
+    base_anchor_tables::Vector{AnchorTable} << [read_at(io, AnchorTable, offset; start = start_base_array_table) for offset in base_anchor_offsets]
 end
 
 @serializable struct BaseArrayTable
     @arg mark_class_count
     base_count::UInt16
-    base_records::Vector{BaseRecord} << [read(io, BaseRecord, mark_class_count) for _ in 1:base_count]
+    base_records::Vector{BaseRecord} << [read(io, BaseRecord, mark_class_count, __origin__) for _ in 1:base_count]
 end
 
 @serializable struct GPOSLookupMarkToBaseAttachmentTable <: GPOSLookupSubtable{4}
@@ -297,6 +298,16 @@ Base.read(io::IO, ::Type{GPOSLookupSubtable{8}}) = read(io, GPOSChainedContextua
 
     subtables::Vector{GPOSLookupSubtable} << [read_at(io, GPOSLookupSubtable{Int(lookup_type)}, offset; start = __origin__) for offset in subtable_offsets]
 end
+
+@serializable struct GPOSExtenstionTable <: GPOSLookupSubtable{9}
+    pos_format::UInt16
+    extension_lookup_type::UInt16
+    extension_offset::UInt16
+
+    extension_table::GPOSLookupTable << read_at(io, GPOSLookupTable, extension_offset; start = __origin__)
+end
+
+Base.read(io::IO, ::Type{GPOSLookupSubtable{9}}) = read(io, GPOSExtenstionTable)
 
 @serializable struct GlyphPositioningTable
     header::GPOSHeader
