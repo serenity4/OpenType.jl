@@ -8,9 +8,11 @@ using Accessors: @set
 using .Meta: isexpr
 using BitMasks
 
+"0-based glyph identifier, often used as index with relevant data structures."
 const GlyphID = UInt16
 const GlyphIDOffset = Int16
-const Class = UInt16
+"0-based glyph class identifier, often used as index with relevant data structures."
+const ClassID = UInt16
 
 const Optional{T} = Union{T,Nothing}
 const VERSION16DOT16 = UInt32

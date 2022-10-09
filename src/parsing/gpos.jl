@@ -159,8 +159,8 @@ end
 @serializable struct EntryExitRecord
     entry_anchor_offset::UInt16
     exit_anchor_offset::UInt16
-    entry_anchor_table::AnchorTable
-    exit_anchor_table::AnchorTable
+    entry_anchor_table::Optional{AnchorTable} << (iszero(entry_anchor_offset) ? nothing : read_at(io, AnchorTable, entry_anchor_offset; start = __origin__))
+    exit_anchor_table::Optional{AnchorTable} << (iszero(exit_anchor_offset) ? nothing : read_at(io, AnchorTable, exit_anchor_offset; start = __origin__))
 end
 
 @serializable struct GPOSLookupCursiveAttachmentTable <: GPOSLookupSubtable{3}
@@ -192,7 +192,7 @@ end
     @arg start_base_array_table
     base_anchor_offsets::Vector{UInt16} => mark_class_count
 
-    base_anchor_tables::Vector{AnchorTable} << [read_at(io, AnchorTable, offset; start = start_base_array_table) for offset in base_anchor_offsets]
+    base_anchor_tables::Vector{Optional{AnchorTable}} << [iszero(offset) ? nothing : read_at(io, AnchorTable, offset; start = start_base_array_table) for offset in base_anchor_offsets]
 end
 
 @serializable struct BaseArrayTable
@@ -217,10 +217,18 @@ end
 
 Base.read(io::IO, ::Type{GPOSLookupSubtable{4}}) = read(io, GPOSLookupMarkToBaseAttachmentTable)
 
+@serializable struct ComponentRecord
+    @arg mark_class_count
+    @arg start_ligature_attach_table
+    ligature_anchor_offsets::Vector{UInt16} => mark_class_count
+
+    ligature_anchor_tables::Vector{Optional{AnchorTable}} << [iszero(offset) ? nothing : read_at(io, AnchorTable, offset; start = start_ligature_attach_table) for offset in ligature_anchor_offsets]
+end
+
 @serializable struct LigatureAttachTable
     @arg mark_class_count
     component_count::UInt16
-    component_records::Vector{Vector{UInt16}} << [[read(io, UInt16) for _ in 1:mark_class_count] for _ in 1:component_count]
+    component_records::Vector{ComponentRecord} << [read(io, ComponentRecord, mark_class_count, __origin__) for _ in 1:component_count]
 end
 
 @serializable struct LigatureArrayTable
@@ -252,7 +260,7 @@ Base.read(io::IO, ::Type{GPOSLookupSubtable{5}}) = read(io, GPOSLookupMarkToLiga
     @arg start_mark_2_array_table
     mark_2_anchor_offsets::Vector{UInt16} => mark_class_count
 
-    mark_2_anchor_tables::Vector{AnchorTable} << [read_at(io, AnchorTable, offset; start = start_mark_2_array_table) for offset in mark_2_anchor_offsets]
+    mark_2_anchor_tables::Vector{Optional{AnchorTable}} << [ iszero(offset) ? nothing : read_at(io, AnchorTable, offset; start = start_mark_2_array_table) for offset in mark_2_anchor_offsets]
 end
 
 @serializable struct Mark2ArrayTable
@@ -271,7 +279,7 @@ end
 
     mark_1_coverage_table::CoverageTable << read_at(io, CoverageTable, mark_1_coverage_offset; start = __origin__)
     mark_2_coverage_table::CoverageTable << read_at(io, CoverageTable, mark_2_coverage_offset; start = __origin__)
-    mark_1_array_table::Mark2ArrayTable << read_at(io, Mark2ArrayTable, mark_1_array_offset, mark_class_count; start = __origin__)
+    mark_1_array_table::MarkArrayTable << read_at(io, MarkArrayTable, mark_1_array_offset; start = __origin__)
     mark_2_array_table::Mark2ArrayTable << read_at(io, Mark2ArrayTable, mark_2_array_offset, mark_class_count; start = __origin__)
 end
 

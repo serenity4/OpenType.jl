@@ -61,7 +61,7 @@ google_font_files = retrieve_google_font_files();
   # Make sure most of them load correctly, later we will check for actual contents.
 
    success, failed, loaded = load_google_fonts(identity, google_font_files; progress = false)
-   @test success ≥ 3009
+   @test success ≥ 3011
 end
 
 # Uncomment to troubleshoot errors and increase coverage.
