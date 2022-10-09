@@ -51,7 +51,7 @@ end
 
 google_font_data, failures = load_google_fonts(google_font_files);
 
-@test sum(length, values(google_font_data)) > 2000
+@test sum(length, values(google_font_data)) > 2500
 
 data = OpenTypeData(first(google_font_files["aboreto"]));
 font = OpenTypeFont(data);

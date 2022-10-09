@@ -52,7 +52,8 @@ function TableNavigationMap(io::Union{SwapStream,TracedIO{<:SwapStream}})
     sfnt in (0x00010000, 0x4F54544F) || error_invalid_font("Invalid format: unknown SFNT version (expected 0x00010000 or 0x4F54544F). The provided IO may not describe an OpenType font, or may describe one that is not conform to the OpenType specification.")
     table_directory = read(io, TableDirectory)
     nav = TableNavigationMap(table_directory.table_records)
-    validate(io, nav)
+    ret = verify_checksums(io, nav)
+    isa(ret, InvalidFontException) && @warn(ret.msg)
     @debug "Available tables: $(join(getproperty.(values(nav.map), :tag), ", "))"
     table_directory, nav
 end

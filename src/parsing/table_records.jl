@@ -7,24 +7,47 @@ end
 
 Base.show(io::IO, tr::TableRecord) = print(io, "TableRecord(", '\"', tr.tag, '\"', ", checksum=", sprint(show, tr.checksum), ", offset=", tr.offset, ", length=", tr.length, ')')
 
-function checksum_head(io::IO, tr::TableRecord, adjustment)
+"""
+Verify the contents of the entire font.
+
+!!! note
+    Certain fonts may have invalid reference checksums yet remain valid for use, as existing tools sometimes allow for it and font
+    publishers may not bother with providing correct checksums.
+
+    Furthermore, this check does not use precomputed checksums but rather goes through the whole file and recompute a final checksum
+    that is compared against a reference checksum. As a result, this is quite slow and this check might be made optional
+    in the future.
+
+    Ideally, we would simply sum up the checksums of every table, but attempts to do so have only led in invalid checksums.
+"""
+function verify_font_checksum(io::IO, head_tr::TableRecord)
+    adjustment_pos = head_tr.offset + 8
     pos = position(io)
-    sum = sum = zero(UInt32)
-    seek(io, 0)
-    i = 0
+    sum = zero(UInt32)
+    seekstart(io)
+    master = nothing
     while !eof(io)
-        sum += read(io, UInt32)
+        if position(io) == adjustment_pos
+            master = read(io, UInt32)
+        else
+            sum += read(io, UInt32)
+        end
     end
-    seek(io, pos)
-    sum -= adjustment
-    0xb1b0afba - sum
+    0xb1b0afba - sum == master || return InvalidFontException("Invalid font checksum: possible data corruption detected")
+    nothing
 end
 
 function checksum(io::IO, tr::TableRecord)
     pos = position(io)
     sum = zero(UInt32)
     seek(io, tr.offset)
-    for _ in 1:cld(tr.length, 4)
+    # Special-case the 'head' table which contains a checksum inside of it.
+    ishead = tr.tag == "head"
+    for i in 1:cld(tr.length, 4)
+        if i == 3 && ishead
+            skip(io, 4)
+            continue
+        end
         sum += read(io, UInt32)
     end
     seek(io, pos)
@@ -39,18 +62,16 @@ TableNavigationMap(records::Vector{TableRecord}) = TableNavigationMap(Dict(rec.t
 
 const REQUIRED_TABLES = ["cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post"]
 
-function validate(io::IO, nav::TableNavigationMap)
+function verify_checksums(io::IO, nav::TableNavigationMap)
+    head_tr = get(nav, "head", nothing)
+    !isnothing(head_tr) || return InvalidFontException("'head' table required")
+
+    ret = verify_font_checksum(io, head_tr)
+    isnothing(ret) || return ret
+
     for tr in values(nav.map)
-        msg = "Invalid checksum for table $(tr.tag)"
-        if tr.tag == "head"
-            pos = position(io)
-            seek(io, tr.offset + 8)
-            adjustment = read(io, UInt32)
-            seek(io, pos)
-            checksum_head(io, tr, adjustment) == adjustment || error_invalid_font(msg)
-        else
-            checksum(io, tr) == tr.checksum || error_invalid_font(msg)
-        end
+        seek(io, tr.offset)
+        checksum(io, tr) == tr.checksum || return InvalidFontException("Invalid checksum for table $(tr.tag)")
     end
 end
 
