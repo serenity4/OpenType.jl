@@ -31,45 +31,34 @@ end
     VALUE_FORMAT_RESERVED = 0xff00
 end
 
-struct ValueRecord
-    x_placement::Optional{Int16}
-    y_placement::Optional{Int16}
-    x_advance::Optional{Int16}
-    y_advance::Optional{Int16}
-    x_pla_device_offset::Optional{UInt16}
-    y_pla_device_offset::Optional{UInt16}
-    x_adv_device_offset::Optional{UInt16}
-    y_adv_device_offset::Optional{UInt16}
-end
-
-function Base.read(io::IO, ::Type{ValueRecord}, format::ValueFormat)
-    x_placement = VALUE_FORMAT_X_PLACEMENT in format ? read(io, Int16) : nothing
-    y_placement = VALUE_FORMAT_Y_PLACEMENT in format ? read(io, Int16) : nothing
-    x_advance = VALUE_FORMAT_X_ADVANCE in format ? read(io, Int16) : nothing
-    y_advance = VALUE_FORMAT_Y_ADVANCE in format ? read(io, Int16) : nothing
-    x_pla_device_offset = VALUE_FORMAT_X_PLACEMENT_DEVICE in format ? read(io, UInt16) : nothing
-    y_pla_device_offset = VALUE_FORMAT_Y_PLACEMENT_DEVICE in format ? read(io, UInt16) : nothing
-    x_adv_device_offset = VALUE_FORMAT_X_ADVANCE_DEVICE in format ? read(io, UInt16) : nothing
-    y_adv_device_offset = VALUE_FORMAT_Y_ADVANCE_DEVICE in format ? read(io, UInt16) : nothing
-    ValueRecord(x_placement, y_placement, x_advance, y_advance, x_pla_device_offset, y_pla_device_offset, x_adv_device_offset, y_adv_device_offset)
+@serializable struct ValueRecord
+    @arg format::ValueFormat
+    x_placement::Optional{Int16} << (in(VALUE_FORMAT_X_PLACEMENT, format) ? read(io, Int16) : nothing)
+    y_placement::Optional{Int16} << (in(VALUE_FORMAT_Y_PLACEMENT, format) ? read(io, Int16) : nothing)
+    x_advance::Optional{Int16} << (in(VALUE_FORMAT_X_ADVANCE, format) ? read(io, Int16) : nothing)
+    y_advance::Optional{Int16} << (in(VALUE_FORMAT_Y_ADVANCE, format) ? read(io, Int16) : nothing)
+    x_pla_device_offset::Optional{UInt16} << (in(VALUE_FORMAT_X_PLACEMENT_DEVICE, format) ? read(io, UInt16) : nothing)
+    y_pla_device_offset::Optional{UInt16} << (in(VALUE_FORMAT_Y_PLACEMENT_DEVICE, format) ? read(io, UInt16) : nothing)
+    x_adv_device_offset::Optional{UInt16} << (in(VALUE_FORMAT_X_ADVANCE_DEVICE, format) ? read(io, UInt16) : nothing)
+    y_adv_device_offset::Optional{UInt16} << (in(VALUE_FORMAT_Y_ADVANCE_DEVICE, format) ? read(io, UInt16) : nothing)
 end
 
 abstract type AnchorTable end
 
-@serializable struct AnchorTableFormat1
+@serializable struct AnchorTableFormat1 <: AnchorTable
     anchor_format::UInt16
     x_coordinate::Int16
     y_coordinate::Int16
 end
 
-@serializable struct AnchorTableFormat2
+@serializable struct AnchorTableFormat2 <: AnchorTable
     anchor_format::UInt16
     x_coordinate::Int16
     y_coordinate::Int16
     anchor_point::UInt16
 end
 
-@serializable struct AnchorTableFormat3
+@serializable struct AnchorTableFormat3 <: AnchorTable
     anchor_format::UInt16
     x_coordinate::Int16
     y_coordinate::Int16
@@ -84,18 +73,14 @@ end
 
 abstract type GPOSLookupSubtable{N} end
 
-function Base.read(io::IO, ::Type{GPOSLookupSubtable})
-    pos_format = peek(io, UInt16)
-    read(io, GPOSLookupSubtable{Int(pos_format)})
-end
-
 abstract type GPOSLookupSingleAdjustmentTable <: GPOSLookupSubtable{1} end
 
 @serializable struct SingleAdjustmentTableFormat1 <: GPOSLookupSingleAdjustmentTable
     pos_format::UInt16
     coverage_offset::UInt16
     value_format::ValueFormat
-    value_records::ValueRecord << read(io, ValueRecord, value_format)
+    value_record::ValueRecord << read(io, ValueRecord, value_format)
+    coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
 end
 
 @serializable struct SingleAdjustmentTableFormat2 <: GPOSLookupSingleAdjustmentTable
@@ -117,7 +102,7 @@ abstract type GPOSLookupPairAdjustmentTable <: GPOSLookupSubtable{2} end
 @serializable struct PairValueRecord
     @arg value_format_1
     @arg value_format_2
-    second_glyph::UInt16
+    second_glyph::GlyphID
     value_record_1::ValueRecord << read(io, ValueRecord, value_format_1)
     value_record_2::ValueRecord << read(io, ValueRecord, value_format_2)
 end
@@ -126,7 +111,7 @@ end
     @arg value_format_1
     @arg value_format_2
     pair_value_count::UInt16
-    pair_value_record::Vector{PairValueRecord} << [read(io, ValueRecord, value_format_1, value_format_2) for _ in 1:pair_value_count]
+    pair_value_record::Vector{PairValueRecord} << [read(io, PairValueRecord, value_format_1, value_format_2) for _ in 1:pair_value_count]
 end
 
 @serializable struct PairAdjustmentTableFormat1 <: GPOSLookupPairAdjustmentTable
@@ -195,14 +180,16 @@ end
     mark_records::Vector{MarkRecord} => mark_count
 end
 
-struct BaseArrayTable
-    base_count::UInt16
-    base_records::Vector{Vector{UInt16}}
+@serializable struct BaseRecord
+    @arg mark_class_count
+    base_anchor_offsets::Vector{UInt16} => mark_class_count
+    base_anchor_tables::Vector{AnchorTable} << [read_at(io, AnchorTable, offset; start = __origin__) for offset in base_anchor_offsets]
 end
 
-function Base.read(io::IO, ::Type{BaseArrayTable}, mark_class_count)
-    base_count = read(io, UInt16)
-    BaseArrayTable(base_count, [[read(io, UInt16) for _ in 1:mark_class_count] for _ in 1:base_count])
+@serializable struct BaseArrayTable
+    @arg mark_class_count
+    base_count::UInt16
+    base_records::Vector{BaseRecord} << [read(io, BaseRecord, mark_class_count) for _ in 1:base_count]
 end
 
 @serializable struct GPOSLookupMarkToBaseAttachmentTable <: GPOSLookupSubtable{4}
@@ -220,27 +207,17 @@ end
 
 Base.read(io::IO, ::Type{GPOSLookupSubtable{4}}) = read(io, GPOSLookupMarkToBaseAttachmentTable)
 
-struct LigatureAttachTable
+@serializable struct LigatureAttachTable
+    @arg mark_class_count
     component_count::UInt16
-    component_records::Vector{Vector{UInt16}}
+    component_records::Vector{Vector{UInt16}} << [[read(io, UInt16) for _ in 1:mark_class_count] for _ in 1:component_count]
 end
 
-function Base.read(io::IO, ::Type{LigatureAttachTable}, mark_class_count)
-    component_count = read(io, UInt16)
-    LigatureAttachTable(component_count, [[read(io, UInt16) for _ in 1:mark_class_count] for _ in 1:component_count])
-end
-
-struct LigatureArrayTable
+@serializable struct LigatureArrayTable
+    @arg mark_class_count
     ligature_count::UInt16
-    ligature_attach_offsets::Vector{UInt16}
-    ligature_attach_table::Vector{LigatureAttachTable}
-end
-
-function Base.read(io::IO, ::Type{LigatureArrayTable}, mark_class_count)
-    ligature_count = read(io, UInt16)
-    ligature_attach_offsets = [read(io, UInt16) for _ in 1:ligature_count]
-    ligature_attach_table = read(io, LigatureAttachTable, mark_class_count)
-    LigatureArrayTable(ligature_count, ligature_attach_offsets, ligature_attach_table)
+    ligature_attach_offsets::Vector{UInt16} => ligature_count
+    ligature_attach_tables::Vector{LigatureAttachTable} << [read_at(io, LigatureAttachTable, offset, mark_class_count; start = __origin__) for offset in ligature_attach_offsets]
 end
 
 @serializable struct GPOSLookupMarkToLigatureAttachmentTable <: GPOSLookupSubtable{5}
@@ -258,20 +235,15 @@ end
 
 Base.read(io::IO, ::Type{GPOSLookupSubtable{5}}) = read(io, GPOSLookupMarkToLigatureAttachmentTable)
 
-struct Mark2Record
-    mark_2_anchor_offsets::Vector{UInt16}
+@serializable struct Mark2Record
+    @arg mark_class_count
+    mark_2_anchor_offsets::Vector{UInt16} => mark_class_count
 end
 
-Base.read(io::IO, ::Type{Mark2Record}, mark_class_count) = Mark2Record([read(io, UInt16) for _ in 1:mark_class_count])
-
-struct Mark2ArrayTable
+@serializable struct Mark2ArrayTable
+    @arg mark_class_count
     mark_count::UInt16
-    mark_records::Vector{Mark2Record}
-end
-
-function Base.read(io::IO, ::Type{Mark2ArrayTable}, mark_class_count)
-    mark_count = read(io, UInt16)
-    Mark2ArrayTable(mark_count, [read(io, Mark2Record, mark_class_count) for _ in 1:mark_count])
+    mark_records::Vector{Mark2Record} << [read(io, Mark2Record, mark_class_count) for _ in 1:mark_count]
 end
 
 @serializable struct GPOSLookupMarkToMarkAttachmentTable <: GPOSLookupSubtable{6}
@@ -283,8 +255,8 @@ end
     mark_2_array_offset::UInt16
     mark_1_coverage_table::CoverageTable << read_at(io, CoverageTable, mark_1_coverage_offset; start = __origin__)
     mark_2_coverage_table::CoverageTable << read_at(io, CoverageTable, mark_2_coverage_offset; start = __origin__)
-    mark_1_array_table::Mark2ArrayTable << read_at(io, Mark2ArrayTable, mark_array_offset, mark_class_count; start = __origin__)
-    mark_2_array_table::Mark2ArrayTable << read_at(io, Mark2ArrayTable, mark_array_offset, mark_class_count; start = __origin__)
+    mark_1_array_table::Mark2ArrayTable << read_at(io, Mark2ArrayTable, mark_1_array_offset, mark_class_count; start = __origin__)
+    mark_2_array_table::Mark2ArrayTable << read_at(io, Mark2ArrayTable, mark_2_array_offset, mark_class_count; start = __origin__)
 end
 
 Base.read(io::IO, ::Type{GPOSLookupSubtable{6}}) = read(io, GPOSLookupMarkToMarkAttachmentTable)
@@ -308,7 +280,7 @@ Base.read(io::IO, ::Type{GPOSLookupSubtable{8}}) = read(io, GPOSChainedContextua
     subtable_count::UInt16
     subtable_offsets::Vector{UInt16} => subtable_count
     mark_filtering_set::UInt16
-    subtables::Vector{GPOSLookupSubtable} << [read_at(io, GPOSLookupSubtable, offset; start = __origin__) for offset in subtable_offsets]
+    subtables::Vector{GPOSLookupSubtable} << [read_at(io, GPOSLookupSubtable{Int(lookup_type)}, offset; start = __origin__) for offset in subtable_offsets]
 end
 
 @serializable struct GlyphPositioningTable

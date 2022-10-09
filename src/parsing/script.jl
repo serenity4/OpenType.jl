@@ -1,5 +1,9 @@
 @serializable struct LangSysTable
-    lookup_order_offset::UInt16
+    lookup_order_offset::UInt16 << begin
+        val = read(io, UInt16)
+        @assert iszero(val) "Non-zero value detected for reserved field 'lookup_order_offset'"
+        val
+    end
     required_feature_index::UInt16
     feature_index_count::UInt16
     feature_indices::Vector{UInt16} => feature_index_count
@@ -16,7 +20,7 @@ end
     default_lang_sys_offset::UInt16
     lang_sys_count::UInt16
     lang_sys_records::Vector{LangSysRecord} << [read(io, LangSysRecord, __origin__) for _ in 1:lang_sys_count]
-    default_lang_sys::Optional{LangSysRecord} << (iszero(default_lang_sys_offset) ? nothing : read_at(io, LangSysRecord, default_lang_sys_offset, __origin__))
+    default_lang_sys_table::Optional{LangSysTable} << (iszero(default_lang_sys_offset) ? nothing : read_at(io, LangSysTable, default_lang_sys_offset; start = __origin__))
 end
 
 @serializable struct ScriptRecord
@@ -30,21 +34,3 @@ end
     script_count::UInt16
     script_records::Vector{ScriptRecord} << [read(io, ScriptRecord, __origin__) for _ in 1:script_count]
 end
-
-function find_script(tag::Tag, table::ScriptListTable)
-    idx = findfirst(x -> x.tag == tag, table.script_records)
-    isnothing(idx) && error("Script '$tag' not found.")
-    table.script_records[idx]
-end
-
-function find_language_system(tag::Tag, table::ScriptTable, prev_tag::Optional{Tag} = nothing)
-    idx = findfirst(x -> x.lang_sys_tag == tag, table.lang_sys_records)
-    if isnothing(idx)
-        !isnothing(table.default_lang_sys) && return table.default_lang_sys
-        tag == "DFLT" && error("No matching language system entry found for the tag '$(something(prev_tag, tag))'")
-        return find_language_system("DFLT", table)
-    end
-    table.lang_sys_records[idx]
-end
-
-find_language_system(script::Tag, language::Tag, table::ScriptListTable) = find_language_system(language, find_language_system(tag, table).table)

@@ -6,8 +6,8 @@ struct Text{T}
   max_line_length::Float64
 end
 
-function text(str::String, font::OpenTypeFont; font_size = 12, line_spacing = 1, max_line_length = 92)
-  Text(collect(str), font, font_size, line_spacing, max_line_length)
+function text(font::OpenTypeFont, str::String, options::TextOptions)
+  Text(collect(str), font, options.font_size, options.line_spacing, options.max_line_length)
 end
 
 # Style is derived from ANSI character escape codes.
@@ -36,14 +36,15 @@ struct GlyphStyle
 end
 
 struct StyledGlyph
-  glyph::Glyph
+  glyph::Union{SimpleGlyph,CompositeGlyph}
   style::GlyphStyle
 end
 
 function apply_ansi_styling(text::Text{Char})
   styled_chars = StyledChar[]
   for char in text.data
-    push!(styled_chars, StyledChar(char, CharacterStyle(false, false, false, false, RGBA(255, 255, 255, 255))))
+    # TODO
+    push!(styled_chars, StyledChar(char, CharacterStyle(false, false, false, false, RGBA(255/255, 255/255, 255/255, 255/255))))
   end
   Text(styled_chars, text.font, text.font_size, text.line_spacing, text.max_line_length)
 end
@@ -71,4 +72,11 @@ struct GlyphData
   "Number of curves to retrieve from the buffer."
   curve_count::UInt32
   color::RGBA{Float32}
+end
+
+function text_glyphs(font::OpenTypeFont, str::AbstractString; font_options::FontOptions = FontOptions(), text_options::TextOptions = TextOptions())
+  t = text(font, str, text_options)
+  t = apply_ansi_styling(t)
+  t = chars_to_glyphs(t)
+  t = apply_glyph_substitutions(t)
 end

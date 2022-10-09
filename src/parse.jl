@@ -9,12 +9,14 @@ function word_align(size)
     4 * cld(size, 4)
 end
 
-function read_expr(field)
+read_tag(io::IO) = String([read(io, UInt8) for _ in 1:4])
+
+function read_expr(field, linenum::LineNumberNode)
     if isexpr(field, :(::))
         T = field.args[2]
         isexpr(T, :curly) && T.args[1] == :Vector && error("Vectors must have a corresponding length.")
         isexpr(T, :curly) && T.args[1] == :NTuple && return :(Tuple(read(io, $(T.args[2]) for _ in 1:$(T.args[3]))))
-        T == :Tag && return :(String([read(io, UInt8) for _ in 1:4]))
+        T == :Tag && return :(read_tag(io))
         T == :String && error("Strings are not supported yet.")
         return :(read(io, $T))
     elseif isexpr(field, :call) && field.args[1] == :(=>)
@@ -24,12 +26,15 @@ function read_expr(field)
             isexpr(T, :curly, 2) && T.args[1] == :Vector && return :([read(io, $(T.args[2])) for _ in 1:$length])
         end
     elseif isexpr(field, :call) && field.args[1] == :(<<)
-        return field.args[3]
+        ex = field.args[3]
+        # Add linenum info to comprehensions to make stack traces more readable.
+        isexpr(ex, :comprehension) && (ex.args[1].args[1] = Expr(:block, linenum, ex.args[1].args[1]))
+        return ex
     end
     error("Unexpected expression form: $field")
 end
 
-function serializable(ex)
+function serializable(ex, source::LineNumberNode)
     !isexpr(ex, :struct) && error("Expected a struct definition, got $(repr(ex))")
     typedecl, fields = ex.args[2:3]
     fields = isexpr(fields, :block) ? fields.args : [fields]
@@ -51,7 +56,14 @@ function serializable(ex)
     exprs = Expr[]
     lengths = Dict{Symbol,Any}()
     fieldnames = Symbol[]
-    fields_nolinenums = filter(!Base.Fix2(isa, LineNumberNode), fields)
+    field_linenums = LineNumberNode[]
+    fields_nolinenums = filter(fields) do x
+        !isa(x, LineNumberNode) && return true
+        push!(field_linenums, x)
+        false
+    end
+    # Ignore linenums for `@arg x` definitions.
+    field_linenums = field_linenums[begin + length(argmeta):end]
     required_fields = Symbol[]
     fields_withlength = Symbol[]
     for ex in fields_nolinenums
@@ -73,9 +85,9 @@ function serializable(ex)
         error("Field $(repr(ex)) must be typed.")
     end
 
-    body = Expr(:block, :(__origin__ = position(io)))
-    for (var, field) in zip(fieldnames, fields_nolinenums)
-        push!(body.args, :($var = $(read_expr(field))))
+    body = Expr(:block, source, :(__origin__ = position(io)))
+    for (linenum, var, field) in zip(field_linenums, fieldnames, fields_nolinenums)
+        push!(body.args, linenum, :($var = $(read_expr(field, linenum))))
     end
     push!(body.args, :($t($(fieldnames...))))
     fdecl = :(Base.read(io::IO, ::Type{$t}))
@@ -107,20 +119,60 @@ where `param_count` can be any expression, which may depend on other structure m
 Fields can be read in a custom manner by using a syntax of the form
 `params::SomeField << ex` where `ex` can be e.g. `read(io, SomeField, other_field.length)`
 where `other_field` can refer to any previous field in the struct. This expression may
-refer to a special variable `__origin__`, which is the position of the IO before parsing the struct.
+refer to a special variable `__origin__`, which is the position of the IO before parsing the struct.y hb
+
+Additional arguments required for `Base.read` can be specified with the syntax `@arg name` at the very start of the structure,
+before any actual fields. In this way, the definition for `Base.read` will include these extra arguments. Calling code
+will then have to provide these extra arguments.
+
+`LineNumberNode`s will be preserved and inserted wherever necessary to keep stack traces informative.
 
 # Examples
 
 ```julia
-@serializable struct FontVariationsTable
-    header::FontVariationsHeader
-    axes::Vector{VariationAxisRecord} => header.axis_count
-    instances::Vector{InstanceRecord} << [read(io, InstanceRecord, header.axis_count) for _ in 1:header.instance_count]
+@serializable struct MarkArrayTable
+    mark_count::UInt16
+    mark_records::Vector{MarkRecord} => mark_count
+end
+```
+
+```julia
+@serializable struct LigatureAttachTable
+    @arg mark_class_count # will need to be provided when `Base.read`ing this type.
+
+    # Length of `component_records`.
+    component_count::UInt16
+
+    component_records::Vector{Vector{UInt16}} << [[read(io, UInt16) for _ in 1:mark_class_count] for _ in 1:component_count]
+end
+```
+
+Here is an advanced example which makes use of all the features:
+
+```julia
+@serializable struct LigatureArrayTable
+    @arg mark_class_count # will need to be provided when `Base.read`ing this type.
+
+    # Length of `ligature_attach_offsets`.
+    ligature_count::UInt16
+
+    # Offsets in bytes from the origin of the structure to data blocks formatted as `LigatureAttachTable`s.
+    ligature_attach_offsets::Vector{UInt16} => ligature_count
+
+    ligature_attach_tables::Vector{LigatureAttachTable} << [read_at(io, LigatureAttachTable, offset, mark_class_count; start = __origin__) for offset in ligature_attach_offsets]
 end
 ```
 """
 macro serializable(ex)
-    esc(serializable(ex))
+    try
+        ex = serializable(ex, __source__)
+    catch
+        (; file, line) = __source__
+        @error "An error happened while parsing an expression at $file:$line"
+        rethrow()
+    end
+
+    esc(ex)
 end
 
 """

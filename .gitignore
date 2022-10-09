@@ -1,3 +1,5 @@
 /Manifest.toml
 /test/resources/*.ttx
 /docs/build
+/tmp
+/test/google_fonts

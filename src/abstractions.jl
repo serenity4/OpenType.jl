@@ -15,10 +15,9 @@ struct Script
   default_language::Optional{LanguageSystem}
 end
 
-function LanguageSystem(script_tag::Tag, language_tag::Tag, scripts::Vector{Script})
-  script_idx = findfirst(x -> x.tag == script_tag, scripts)
-  isnothing(script_idx) && error("Script '$script_tag' not found.")
-  script = scripts[script_idx]
+function LanguageSystem(script_tag::Tag, language_tag::Tag, scripts::Dict{Tag,Script})
+  script = get(scripts, script_tag, nothing)
+  isnothing(script) && error("Script '$script_tag' not found.")
   language_idx = findfirst(x -> x.tag == language_tag, script.languages)
   !isnothing(language_idx) && return script.languages[language_idx]
   !isnothing(script.default_language) && return script.default_language
@@ -111,27 +110,32 @@ function substitute(glyphs::Vector{GlyphID}, pattern::LigatureSubtitution)
   nothing
 end
 
-function substitute(glyphs::Vector{GlyphID}, pattern::ContextualSubstitution, lookups)
-  head, tail... = glyphs
+function contextual_match(f, xs, pattern)
+  head, tail... = xs
   i = match(pattern.coverage, head)
-  !isnothing(i) && for sequence in pattern.sequences[i]
-      if sequence.tail_match == tail
-        res = copy(glyphs)
-        (; substitutions) = sequence
-        unmatched = Set(eachindex(glyphs))
-        for (index, lookup_index) in substitutions
-          in(index, unmatched) || continue
-          new = substitute(glyphs[index], lookups[lookup_index])
-          if !isnothing(new)
-            res[index] = new
-            delete!(unmatched, index)
-            isempty(unmatched) && break
-          end
-        end
-        return glyph
+  if !isnothing(i)
+    for sequence in pattern.sequences
+      sequence.tail_match == tail && return f(xs, sequence)
+    end
+  end
+end
+
+function substitute(glyphs::Vector{GlyphID}, pattern::ContextualSubstitution, lookups)
+  contextual_match(glyphs, pattern) do glyphs, sequence
+    res = copy(glyphs)
+    (; substitutions) = sequence
+    unmatched = Set(eachindex(glyphs))
+    for (index, lookup_index) in substitutions
+      in(index, unmatched) || continue
+      new = substitute(glyphs[index], lookups[lookup_index])
+      if !isnothing(new)
+        res[index] = new
+        delete!(unmatched, index)
+        isempty(unmatched) && break
       end
     end
-  nothing
+    res
+  end
 end
 
 struct RangeClass
@@ -158,3 +162,27 @@ function class(glyph::GlyphID, def::ClassDefinition)
   end
   zero(Class)
 end
+
+# -----------------------------------
+# Conversions from serializable types
+
+function Script(record::ScriptRecord)
+  table = record.script_table
+  languages = LanguageSystem.(table.lang_sys_records)
+  default_language = nothing
+  !isnothing(table.default_lang_sys_table) && (default_language = LanguageSystem("dflt", table.default_lang_sys_table.required_feature_index, table.default_lang_sys_table.feature_indices))
+  Script(record.script_tag, languages, default_language)
+end
+
+function LanguageSystem(record::LangSysRecord)
+  table = record.lang_sys_table
+  LanguageSystem(record.lang_sys_tag, table.required_feature_index, table.feature_indices)
+end
+
+function Feature(record::FeatureRecord)
+  table = record.feature_table
+  Feature(record.feature_tag, table.lookup_list_indices)
+end
+
+Coverage(table::CoverageTableFormat1) = Coverage([], 0, table.glyph_array)
+Coverage(table::CoverageTableFormat2) = Coverage([record.start_glyph_id:record.end_glyph_id for record in table.range_records], first(table.range_records).start_coverage_index)

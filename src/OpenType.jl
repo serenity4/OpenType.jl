@@ -9,7 +9,7 @@ using .Meta: isexpr
 using BitMasks
 
 const GlyphID = UInt16
-const GlyphOffset = Int16
+const GlyphIDOffset = Int16
 const Class = UInt16
 
 const Optional{T} = Union{T,Nothing}
@@ -22,16 +22,19 @@ const Fixed = UInt32
 "4-byte string."
 const Tag = String
 
+include("traced_io.jl")
 include("error.jl")
+include("options.jl")
 include("parse.jl")
 include("abstractions.jl")
+include("positioning.jl")
 include("data.jl")
 include("glyphs.jl")
 include("font.jl")
 include("char_to_glyph.jl")
 include("text.jl")
 
-export OpenTypeFont
+export OpenTypeFont, FontOptions, TextOptions, text_glyphs
 
 
 end

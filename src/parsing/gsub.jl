@@ -24,7 +24,7 @@ abstract type GSUBLookupSingleTable <: GSUBLookupSubtable{1} end
 @serializable struct SingleTableFormat1 <: GSUBLookupSingleTable
     subst_format::UInt16
     coverage_offset::UInt16
-    delta_glyph_id::GlyphOffset
+    delta_glyph_id::GlyphIDOffset
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
 end
 
