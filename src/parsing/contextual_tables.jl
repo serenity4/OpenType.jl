@@ -13,6 +13,7 @@ end
 @serializable struct SequenceRuleSetTable
     seq_rule_count::UInt16
     seq_rule_offsets::Vector{UInt16} => seq_rule_count
+
     seq_rule_tables::Vector{SequenceRuleTable} << [read_at(io, SequenceRuleTable, offset; start = __origin__) for offset in seq_rule_offsets]
 end
 
@@ -33,6 +34,7 @@ abstract type SequenceContextTable end
     coverage_offset::UInt16
     seq_rule_set_count::UInt16
     seq_rule_set_offsets::UInt16
+
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
     seq_rule_set_tables::Vector{SequenceRuleSetTable} << [read_at(io, SequenceRuleSetTable, offset; start = __origin__) for offset in seq_rule_set_offsets]
 end
@@ -43,6 +45,7 @@ end
     class_def_offset::UInt16
     class_seq_rule_set_count::UInt16
     class_seq_rule_set_offsets::Vector{UInt16} => class_seq_rule_set_count
+
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
     seq_rule_set_tables::Vector{SequenceRuleSetTable} << [read_at(io, SequenceRuleSetTable, offset; start = __origin__) for offset in seq_rule_set_offsets]
 end
@@ -53,10 +56,74 @@ end
     seq_lookup_count::UInt16
     coverage_offsets::Vector{UInt16} => glyph_count
     seq_lookup_records::Vector{SequenceLookupRecord} => seq_lookup_count
+
     coverage_tables::Vector{CoverageTable} << [read_at(io, CoverageTable, offset; start = __origin__) for offset in coverage_offsets]
 end
 
 function Base.read(io::IO, ::Type{SequenceContextTable})
     format = peek(io, UInt16)
     format == 1 ? read(io, SequenceContextTableFormat1) : format == 2 ? read(io, SequenceContextTableFormat2) : read(io, SequenceContextTableFormat3)
+end
+
+@serializable struct ChainedSequenceRuleTable
+    backtrack_glyph_count::UInt16
+    backtrack_sequence::Vector{UInt16} => backtrack_glyph_count
+    input_glyph_count::UInt16
+    input_sequence::Vector{UInt16} => input_glyph_count - 1
+    lookahead_glyph_count::UInt16
+    lookahead_sequence::Vector{UInt16} => lookahead_glyph_count
+    seq_lookup_count::UInt16
+    seq_lookup_records::Vector{SequenceLookupRecord} => seq_lookup_count
+end
+
+@serializable struct ChainedSequenceRuleSetTable
+    chained_class_seq_rule_count::UInt16
+    chain_seq_rule_offsets::Vector{UInt16} => chained_seq_rule_count
+
+    chain_seq_rule_tables::Vector{ChainedSequenceRuleTable} << [read_at(io, ChainedSequenceRuleTable, offset; start = __origin__) for offset in chained_seq_rule_offsets]
+end
+
+abstract type ChainedSequenceContextTable end
+
+@serializable struct ChainedSequenceContextFormat1 <: ChainedSequenceContextTable
+    format::UInt16
+    coverage_offset::UInt16
+    chained_seq_rule_set_count::UInt16
+    chained_seq_rule_set_offsets::Vector{UInt16} => chained_seq_rule_set_count
+    coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
+
+    chained_seq_rule_set_tables::Vector{ChainedSequenceRuleSetTable} << [read_at(io, ChainedSequenceRuleSetTable, offset; start = __origin__) for offset in chain_seq_rule_set_offsets]
+end
+
+@serializable struct ChainedSequenceContextFormat2 <: ChainedSequenceContextTable
+    format::UInt16
+    coverage_offset::UInt16
+    backtrack_class_def_offset::UInt16
+    input_class_def_offset::UInt16
+    lookahead_class_def_offset::UInt16
+    chained_class_seq_rule_set_count::UInt16
+    chained_class_seq_rule_set_offsets::Vector{UInt16} => chained_class_seq_rule_set_count
+
+    coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
+    backtrack_class_def_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, backtrack_class_def_offset; start = __origin__)
+    input_class_def_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, coverainput_class_def_offsetge_offset; start = __origin__)
+    lookahead_class_def_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, lookahead_class_def_offset; start = __origin__)
+    # To be exact, the element type is `ChainedClassSequenceRuleSetTable`, but this type is structurally identical to `ChainedSequenceRuleSetTable`.
+    chained_class_seq_rule_set_tables::Vector{ChainedSequenceRuleSetTable} << [read_at(io, ChainedSequenceRuleSetTable, offset; start = __origin__) for offset in chained_class_seq_rule_set_offsets]
+end
+
+@serializable struct ChainedSequenceContextFormat3 <: ChainedSequenceContextTable
+    format::UInt16
+    backtrack_glyph_count::UInt16
+    backtrack_coverage_offsets::Vector{UInt16} => backtrack_glyph_count
+    input_glyph_count::UInt16
+    input_coverage_offsets::Vector{UInt16} => input_glyph_count
+    lookahead_glyph_count::UInt16
+    lookahead_coverage_offsets::Vector{UInt16} => lookahead_glyph_count
+    seq_lookup_count::UInt16
+    seq_lookup_records::Vector{SequenceLookupRecord} => seq_lookup_count
+
+    backtrack_coverage_tables::Vector{CoverageTable} << [read_at(io, CoverageTable, offset; start = __origin__) for offset in backtrack_coverage_offsets]
+    input_coverage_tables::Vector{CoverageTable} << [read_at(io, CoverageTable, offset; start = __origin__) for offset in input_coverage_offsets]
+    lookahead_coverage_tables::Vector{CoverageTable} << [read_at(io, CoverageTable, offset; start = __origin__) for offset in lookahead_coverage_offsets]
 end
