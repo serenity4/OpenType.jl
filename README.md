@@ -11,4 +11,4 @@ OpenType specification: https://learn.microsoft.com/en-us/typography/opentype/sp
 
 ## Status
 
-This is currently a work in progress. The [current documentation](https://serenity4.github.io/OpenType.jl/dev) may contain some information, but is still lacking. Potential users are encouraged to look at the tests and at the source code for more information.
+This is currently a work in progress. Potential users are encouraged to look at the tests and at the source code for more information, but know that this library is not yet raedy for use.
