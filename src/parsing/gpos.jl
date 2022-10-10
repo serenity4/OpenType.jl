@@ -299,7 +299,7 @@ Base.read(io::IO, ::Type{GPOSLookupSubtable{8}}) = read(io, GPOSChainedContextua
 
 @serializable struct GPOSLookupTable <: LookupTable
     lookup_type::UInt16
-    lookup_flag::UInt16
+    lookup_flag::LookupFlag
     subtable_count::UInt16
     subtable_offsets::Vector{UInt16} => subtable_count
     mark_filtering_set::UInt16

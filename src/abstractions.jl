@@ -191,8 +191,8 @@ function Feature(record::FeatureRecord)
   Feature(record.feature_tag, table.lookup_list_indices)
 end
 
-Coverage(table::CoverageTableFormat1) = Coverage([], 0, table.glyph_array)
-Coverage(table::CoverageTableFormat2) = Coverage([record.start_glyph_id:record.end_glyph_id for record in table.range_records], first(table.range_records).start_coverage_index)
+Coverage(table::CoverageTableFormat1) = Coverage(UnitRange{GlyphID}[], 0, table.glyph_array)
+Coverage(table::CoverageTableFormat2) = Coverage([record.start_glyph_id:record.end_glyph_id for record in table.range_records], first(table.range_records).start_coverage_index, GlyphID[])
 
 ClassDefinition(def::ClassDefinitionTableFormat1) = ClassDefinition(RangeClass[], def.class_value_array, def.start_glyph_id)
 ClassDefinition(def::ClassDefinitionTableFormat2) = ClassDefinition(RangeClass.(def.class_range_records), ClassID[], 0)

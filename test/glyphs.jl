@@ -49,7 +49,7 @@ using GeometryExperiments
       for point in glyph_points
         @test point.coords in outline
       end
-      @test first(outline) == Point(55, 352)
+
       for outline in outlines
         @test last(outline) == first(outline)
         @test isodd(length(outline))

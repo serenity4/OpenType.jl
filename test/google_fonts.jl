@@ -20,7 +20,7 @@ function retrieve_google_font_files()
   google_font_files
 end
 
-function load_google_fonts(f, google_font_files; throw = false, progress = true)
+function load_google_fonts(f, google_font_files; throw = false, progress = true, start = 1)
   nfonts = sum(length, values(google_font_files))
   @info "Loading Google Fonts..."
   count = 0
@@ -29,6 +29,8 @@ function load_google_fonts(f, google_font_files; throw = false, progress = true)
   loaded = 0
   for (font_family, font_files) in sort(collect(google_font_files); by=first)
     for font_file in font_files
+      count += 1
+      start ≤ count || continue
       font_name = basename(font_file)
       if progress
         print("\r", ' '^120)
@@ -48,9 +50,9 @@ function load_google_fonts(f, google_font_files; throw = false, progress = true)
           failed += 1
         end
       end
-      count += 1
     end
   end
+  progress && println()
 
   success, failed, loaded
 end
@@ -58,12 +60,11 @@ end
 google_font_files = retrieve_google_font_files();
 
 @testset "Google Fonts" begin
-  # Make sure most of them load correctly, later we will check for actual contents.
-
-   success, failed, loaded = load_google_fonts(identity, google_font_files; progress = false)
-   @test success ≥ 3011
+  success, failed, loaded = load_google_fonts(identity, google_font_files; progress = false)
+  @test success ≥ 3011
 end
 
 # Uncomment to troubleshoot errors and increase coverage.
 # load_google_fonts(identity, google_font_files; throw = true)
 # load_google_fonts(identity, google_font_files; throw = false)
+# success, failed, loaded = load_google_fonts(OpenTypeFont, google_font_files; progress = true, throw = true, start = 4)

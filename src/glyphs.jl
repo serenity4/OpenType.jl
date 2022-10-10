@@ -78,8 +78,15 @@ function SimpleGlyph(glyph::SimpleGlyphTable)
         sizehint!(points, length(data_points))
 
         # Make sure data points define a closed contour.
-        while !(first(data_points).on_curve)
-            push!(data_points, popfirst!(data_points))
+        if !data_points[1].on_curve
+            if data_points[2].on_curve
+                push!(data_points, popfirst!(data_points))
+            elseif data_points[end].on_curve
+                pushfirst!(data_points, pop!(data_points))
+            else
+                push!(data_points, popfirst!(data_points))
+                pushfirst!(data_points, GlyphPointInfo((data_points[1].coords + data_points[end].coords) .÷ 2, true))
+            end
         end
         if last(data_points) ≠ first(data_points)
             # terminate with a linear segment
@@ -92,7 +99,7 @@ function SimpleGlyph(glyph::SimpleGlyphTable)
             coords = point.coords
             if !on_curve && !point.on_curve || on_curve && point.on_curve
                 # There is an implicit on-curve point halfway.
-                push!(points, (coords + points[end]) / 2)
+                push!(points, (coords + points[end]) .÷ 2)
             end
             push!(points, coords)
             on_curve = point.on_curve
