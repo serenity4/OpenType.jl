@@ -36,7 +36,7 @@ abstract type SequenceContextTable end
     seq_rule_set_offsets::UInt16
 
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
-    seq_rule_set_tables::Vector{SequenceRuleSetTable} << [read_at(io, SequenceRuleSetTable, offset; start = __origin__) for offset in seq_rule_set_offsets]
+    seq_rule_set_tables::Vector{Optional{SequenceRuleSetTable}} << [iszero(offset) ? nothing : read_at(io, SequenceRuleSetTable, offset; start = __origin__) for offset in seq_rule_set_offsets]
 end
 
 @serializable struct SequenceContextTableFormat2 <: SequenceContextTable
@@ -47,7 +47,8 @@ end
     class_seq_rule_set_offsets::Vector{UInt16} => class_seq_rule_set_count
 
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
-    seq_rule_set_tables::Vector{SequenceRuleSetTable} << [read_at(io, SequenceRuleSetTable, offset; start = __origin__) for offset in seq_rule_set_offsets]
+    class_def_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, class_def_offset; start = __origin__)
+    class_seq_rule_set_tables::Vector{Optional{SequenceRuleSetTable}} << [iszero(offset) ? nothing : read_at(io, SequenceRuleSetTable, offset; start = __origin__) for offset in seq_rule_set_offsets]
 end
 
 @serializable struct SequenceContextTableFormat3 <: SequenceContextTable
@@ -62,7 +63,10 @@ end
 
 function Base.read(io::IO, ::Type{SequenceContextTable})
     format = peek(io, UInt16)
-    format == 1 ? read(io, SequenceContextTableFormat1) : format == 2 ? read(io, SequenceContextTableFormat2) : read(io, SequenceContextTableFormat3)
+    format == 1 && return read(io, SequenceContextTableFormat1)
+    format == 2 && return read(io, SequenceContextTableFormat2)
+    format == 3 && return read(io, SequenceContextTableFormat3)
+    @assert false
 end
 
 @serializable struct ChainedSequenceRuleTable
@@ -130,12 +134,8 @@ end
 
 function Base.read(io::IO, ::Type{ChainedSequenceContextTable})
     format = peek(io, UInt16)
-    if format == 1
-        read(io, ChainedSequenceContextFormat1)
-    elseif format == 2
-        read(io, ChainedSequenceContextFormat2)
-    else
-        @assert format == 3
-        read(io, ChainedSequenceContextFormat3)
-    end
+    format == 1 && return read(io, ChainedSequenceContextFormat1)
+    format == 2 && return read(io, ChainedSequenceContextFormat2)
+    format == 3 && return read(io, ChainedSequenceContextFormat3)
+    @assert false
 end

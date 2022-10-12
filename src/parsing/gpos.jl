@@ -307,7 +307,7 @@ Base.read(io::IO, ::Type{GPOSLookupSubtable{8}}) = read(io, GPOSChainedContextua
     subtables::Vector{GPOSLookupSubtable} << [read_at(io, GPOSLookupSubtable{Int(lookup_type)}, offset; start = __origin__) for offset in subtable_offsets]
 end
 
-@serializable struct GPOSExtenstionTable <: GPOSLookupSubtable{9}
+@serializable struct GPOSExtensionTable <: GPOSLookupSubtable{9}
     pos_format::UInt16
     extension_lookup_type::UInt16
     extension_offset::UInt16
@@ -315,7 +315,7 @@ end
     extension_table::GPOSLookupTable << read_at(io, GPOSLookupTable, extension_offset; start = __origin__)
 end
 
-Base.read(io::IO, ::Type{GPOSLookupSubtable{9}}) = read(io, GPOSExtenstionTable)
+Base.read(io::IO, ::Type{GPOSLookupSubtable{9}}) = read(io, GPOSExtensionTable)
 
 @serializable struct GlyphPositioningTable
     header::GPOSHeader

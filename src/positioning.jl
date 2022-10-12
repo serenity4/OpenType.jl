@@ -284,6 +284,7 @@ end
 
 function PositioningRule(table::GPOSLookupTable)
   (; lookup_type, subtables) = table
+  lookup_type == 9 && return PositioningRule(table.table.extension_table)
   rule_impls = if lookup_type == 1
     Any[AdjustmentPositioning(table) for table::Union{SingleAdjustmentTableFormat1, SingleAdjustmentTableFormat2} in subtables]
   elseif lookup_type == 2
@@ -297,17 +298,26 @@ function PositioningRule(table::GPOSLookupTable)
   elseif lookup_type == 6
     Any[MarkToMarkRule(table) for table::GPOSLookupMarkToMarkAttachmentTable in subtables]
   elseif lookup_type == 7
-    # TODO
+    Any[ContextualRule(table.table::Union{SequenceContextTableFormat1, SequenceContextTableFormat2, SequenceContextTableFormat3}) for table::GPOSContextualTable in subtables]
   elseif lookup_type == 8
-    # TODO
+    Any[ChainedContextualRule(table.table::Union{ChainedSequenceContextFormat1, ChainedSequenceContextFormat2, ChainedSequenceContextFormat3}) for table::GPOSChainedContextualTable in subtables]
   else
-    @assert lookup_type == 9
-    # TODO
+    @assert false
   end
   PositioningRule(PositioningRuleType(lookup_type), table.lookup_flag, table.mark_filtering_set, rule_impls)
 end
 
-positioning_rules(table::GlyphPositioningTable) = [PositioningRule(lookup_table::GPOSLookupTable) for lookup_table in table.lookup_list_table.lookup_tables]
+function positioning_rules(table::GlyphPositioningTable)
+  rules = PositioningRule[]
+  for lookup_table::GPOSLookupTable in table.lookup_list_table.lookup_tables
+    if lookup_table.lookup_type == 9
+      append!(rules, (PositioningRule(subtable.extension_table) for subtable in lookup_table.subtables))
+    else
+      push!(rules, PositioningRule(lookup_table))
+    end
+  end
+  rules
+end
 
 function GlyphPositioning(gpos::GlyphPositioningTable)
   scripts = Dict(script.tag => script for script in Script.(gpos.script_list_table.script_records))

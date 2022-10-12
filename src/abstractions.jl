@@ -54,97 +54,6 @@ end
 
 Base.contains(coverage::Coverage, glyph::GlyphID) = !isnothing(match(coverage, glyph))
 
-struct SingleSubstitution
-  coverage::Coverage
-  substitution::Union{GlyphID, Vector{GlyphID}}
-end
-
-struct MultipleSubtitution
-  coverage::Coverage
-  substitutions::Vector{Vector{GlyphID}}
-end
-
-struct AlternateSubtitution
-  coverage::Coverage
-  alternatives::Vector{Vector{GlyphID}}
-end
-
-struct LigatureEntry
-  "Tail glyphs which must be matched to apply the substitution."
-  tail_match::Vector{GlyphID}
-  "Glyph to be substituted."
-  substitution::GlyphID
-end
-
-struct LigatureSubtitution
-  coverage::Coverage
-  ligatures::Vector{LigatureEntry}
-end
-
-struct SequenceEntry
-  tail::Vector{GlyphID}
-  substitutions::Vector{Pair{UInt16,UInt16}} # Sequence index => Lookup index.
-end
-
-struct ContextualSubstitution
-  coverage::Coverage
-  sequences::Vector{SequenceEntry}
-end
-
-function substitute(glyph::GlyphID, pattern::SingleSubstitution)
-  i = match(pattern.coverage, glyph)
-  !isnothing(i) && return isa(pattern.substitution, GlyphID) ? pattern.substitution : pattern.substitution[i]
-  nothing
-end
-
-function substitute(glyph::GlyphID, pattern::MultipleSubtitution)
-  i = match(pattern.coverage, glyph)
-  !isnothing(i) && return pattern.substitutions[i]
-  nothing
-end
-
-function alternatives(glyph::GlyphID, pattern::AlternateSubtitution)
-  i = match(pattern.coverage, glyph)
-  !isnothing(i) && return pattern.alternatives[i]
-  nothing
-end
-
-function substitute(glyphs::Vector{GlyphID}, pattern::LigatureSubtitution)
-  head, tail... = glyphs
-  i = match(pattern.coverage, head)
-  !isnothing(i) && for ligature in pattern.ligatures[i]
-      ligature.tail_match == tail && return ligature.substitution
-    end
-  nothing
-end
-
-function contextual_match(f, xs, pattern)
-  head, tail... = xs
-  if contains(pattern.coverage, head)
-    for sequence in pattern.sequences
-      sequence.tail_match == tail && return f(xs, sequence)
-    end
-  end
-end
-
-function substitute(glyphs::Vector{GlyphID}, pattern::ContextualSubstitution, lookups)
-  contextual_match(glyphs, pattern) do glyphs, sequence
-    res = copy(glyphs)
-    (; substitutions) = sequence
-    unmatched = Set(eachindex(glyphs))
-    for (index, lookup_index) in substitutions
-      in(index, unmatched) || continue
-      new = substitute(glyphs[index], lookups[lookup_index])
-      if !isnothing(new)
-        res[index] = new
-        delete!(unmatched, index)
-        isempty(unmatched) && break
-      end
-    end
-    res
-  end
-end
-
 struct RangeClass
   "Range of glyphs by ID which are mapped to this class."
   range::UnitRange{GlyphID}
@@ -168,6 +77,49 @@ function class(glyph::GlyphID, def::ClassDefinition)
     in(glyph, rc.range) && return rc.class
   end
   zero(ClassID)
+end
+
+struct SequenceEntry
+  tail::Union{Vector{GlyphID}, Vector{ClassID}}
+  rules::Vector{Pair{UInt16,UInt16}} # sequence index => rule index
+end
+
+struct ContextualRule
+  coverage::Optional{Coverage}
+  glyph_sequences::Optional{Vector{Vector{SequenceEntry}}}
+  class_sequences::Optional{Vector{Vector{SequenceEntry}}}
+  class_definition::Optional{ClassDefinition}
+  coverage_sequences::Optional{Vector{Coverage}}
+  coverage_rules::Optional{Vector{Pair{UInt16,UInt16}}} # sequence index => rule index
+end
+
+function contextual_match(f, xs, pattern)
+  head, tail... = xs
+  if contains(pattern.coverage, head)
+    for sequence in pattern.sequences
+      sequence.tail_match == tail && return f(xs, sequence)
+    end
+  end
+end
+
+struct ChainMatch
+  backtrack_sequence::Union{Vector{GlyphID}, Vector{ClassID}}
+  tail::Union{Vector{GlyphID}, Vector{ClassID}}
+  lookahead_sequence::Union{Vector{GlyphID}, Vector{ClassID}}
+  rules::Vector{Pair{UInt16,UInt16}} # sequence index => rule index
+end
+
+struct ChainedSequenceEntry
+  matches::Vector{ChainMatch}
+end
+
+struct ChainedContextualRule
+  coverage::Optional{Coverage}
+  glyph_sequences::Optional{Vector{ChainedSequenceEntry}}
+  class_sequences::Optional{Vector{ChainedSequenceEntry}}
+  class_definitions::Optional{NTuple{3, ClassDefinition}} # backtrack, input and lookahead classes
+  coverage_sequences::Optional{NTuple{3, Vector{Coverage}}} # backtrack, input and lookahead coverages
+  coverage_rules::Optional{Vector{Pair{UInt16,UInt16}}} # sequence index => rule index
 end
 
 # -----------------------------------
@@ -197,3 +149,19 @@ Coverage(table::CoverageTableFormat2) = Coverage([record.start_glyph_id:record.e
 ClassDefinition(def::ClassDefinitionTableFormat1) = ClassDefinition(RangeClass[], def.class_value_array, def.start_glyph_id)
 ClassDefinition(def::ClassDefinitionTableFormat2) = ClassDefinition(RangeClass.(def.class_range_records), ClassID[], 0)
 RangeClass(record::ClassRangeRecord) = RangeClass(record.start_glyph_id:record.end_glyph_id, record.class)
+
+sequence_rule(record::SequenceLookupRecord) = record.sequence_index => record.lookup_list_index
+SequenceEntry(table::SequenceRuleTable) = SequenceEntry(table.input_sequence, sequence_rule.(table.seq_lookup_records))
+sequence_entries(table::SequenceRuleSetTable) = SequenceEntry.(table.seq_rule_tables)
+
+ContextualRule(table::SequenceContextTableFormat1) = ContextualRule(Coverage(table.coverage_table), sequence_entries.(table.seq_rule_set_tables), nothing, nothing, nothing, nothing)
+ContextualRule(table::SequenceContextTableFormat2) = ContextualRule(Coverage(table.coverage_table), nothing, sequence_entries.(table.seq_rule_set_tables), ClassDefinition(table.class_def_table), nothing, nothing)
+ContextualRule(table::SequenceContextTableFormat3) = ContextualRule(nothing, nothing, nothing, nothing, Coverage.(table.coverage_tables), sequence_rule.(table.seq_lookup_records))
+
+ChainMatch(table::ChainedSequenceRuleTable) = ChainMatch(table.backtrack_sequence, table.input_sequence, table.lookahead_sequence, sequence_rule.(table.seq_lookup_records))
+ChainedSequenceEntry(table::ChainedSequenceRuleSetTable) = ChainedSequenceEntry(ChainMatch.(table.chained_seq_rule_tables))
+coverage_tables(tables) = Coverage.(tables)
+
+ChainedContextualRule(table::ChainedSequenceContextFormat1) = ChainedContextualRule(Coverage(table.coverage_table), ChainedSequenceEntry.(table.chained_seq_rule_set_tables), nothing, nothing, nothing, nothing)
+ChainedContextualRule(table::ChainedSequenceContextFormat2) = ChainedContextualRule(Coverage(table.coverage_table), nothing, ChainedSequenceEntry.(table.chained_class_seq_rule_set_tables), ClassDefinition.((table.backtrack_class_def_table, table.input_class_def_table, table.lookahead_class_def_table)), nothing, nothing)
+ChainedContextualRule(table::ChainedSequenceContextFormat3) = ChainedContextualRule(nothing, nothing, nothing, nothing, coverage_tables.((table.backtrack_coverage_tables, table.input_coverage_tables, table.lookahead_coverage_tables)), sequence_rule.(table.seq_lookup_records))
