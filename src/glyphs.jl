@@ -5,9 +5,10 @@ struct SimpleGlyph
 end
 
 struct CompositeGlyphComponent
-    glyph_index::UInt16
-    offset::Translation{2,Int16}
-    scale::Scaling{2,Float64}
+    flags::ComponentGlyphFlag
+    glyph_index::GlyphID
+    offset::NTuple{2,Int16}
+    transform::Optional{Union{F2DOT14, NTuple{2,F2DOT14}, NTuple{4,F2DOT14}}}
 end
 
 struct CompositeGlyph
@@ -113,17 +114,15 @@ function SimpleGlyph(glyph::SimpleGlyphTable)
     SimpleGlyph(outlines)
 end
 
+CompositeGlyphComponent(data::ComponentGlyphTable) = CompositeGlyphComponent(data.flags, data.glyph_index, (data.argument_1, data.argument_2), data.transform)
+
 function read_glyphs(data::OpenTypeData)
     (; glyf) = data
     glyphs = Union{SimpleGlyph, CompositeGlyph}[]
     for glyph in glyf.glyphs
         isnothing(glyph) && continue
-        data = glyph.data
-        if data isa SimpleGlyphTable
-            push!(glyphs, SimpleGlyph(data))
-        else
-            error("Composite glyphs not supported yet.")
-        end
+        (; data) = glyph
+        push!(glyphs, isa(data, SimpleGlyphTable) ? SimpleGlyph(data) : CompositeGlyph(CompositeGlyphComponent.(data.components)))
     end
     glyphs
 end

@@ -103,10 +103,10 @@ end
 
 struct ComponentGlyphTable
     flags::ComponentGlyphFlag
-    glyph_index::UInt16
+    glyph_index::GlyphID
     argument_1::Union{UInt8,Int8,UInt16,Int16}
     argument_2::Union{UInt8,Int8,UInt16,Int16}
-    scale::Optional{Union{F2DOT14,NTuple{2,F2DOT14},NTuple{4,F2DOT14}}}
+    transform::Optional{Union{F2DOT14,NTuple{2,F2DOT14},NTuple{4,F2DOT14}}}
     num_instr::Optional{UInt16}
     instr::Optional{Vector{UInt8}}
 end
@@ -127,7 +127,7 @@ function Base.read(io::IO, ::Type{ComponentGlyphTable})
             read(io, UInt8), read(io, UInt8)
         end
     end
-    scale = if WE_HAVE_A_SCALE in flags
+    transform = if WE_HAVE_A_SCALE in flags
         read(io, F2DOT14)
     elseif WE_HAVE_AN_X_AND_Y_SCALE in flags
         read(io, F2DOT14), read(io, F2DOT14)
@@ -139,7 +139,7 @@ function Base.read(io::IO, ::Type{ComponentGlyphTable})
         num_instr = read(io, UInt16)
         instr = [read(io, UInt8) for _ in 1:num_instr]
     end
-    ComponentGlyphTable(flags, glyph_index, argument_1, argument_2, scale, num_instr, instr)
+    ComponentGlyphTable(flags, glyph_index, argument_1, argument_2, transform, num_instr, instr)
 end
 
 struct CompositeGlyphTable
