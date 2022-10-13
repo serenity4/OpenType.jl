@@ -20,7 +20,7 @@ function retrieve_google_font_files()
   google_font_files
 end
 
-function load_google_fonts(f, google_font_files; throw = false, progress = true, start = 1)
+function load_google_fonts(f, google_font_files; throw = false, progress = true, start = 1, filter = Returns(true))
   nfonts = sum(length, values(google_font_files))
   @info "Loading Google Fonts..."
   count = 0
@@ -39,6 +39,7 @@ function load_google_fonts(f, google_font_files; throw = false, progress = true,
       try
         data = OpenTypeData(font_file; verify_checksums = false)
         loaded += 1
+        filter(data) || continue
         f(data)
         success += 1
       catch
@@ -62,9 +63,11 @@ google_font_files = retrieve_google_font_files();
 @testset "Google Fonts" begin
   success, failed, loaded = load_google_fonts(identity, google_font_files; progress = false)
   @test success ≥ 3011
+  success, failed, loaded = load_google_fonts(OpenTypeFont, google_font_files; progress = false, filter = x -> !isnothing(x.gpos))
+  @test success ≥ 2643
 end
 
 # Uncomment to troubleshoot errors and increase coverage.
 # load_google_fonts(identity, google_font_files; throw = true)
 # load_google_fonts(identity, google_font_files; throw = false)
-# success, failed, loaded = load_google_fonts(OpenTypeFont, google_font_files; progress = true, throw = true, start = 4)
+# success, failed, loaded = load_google_fonts(OpenTypeFont, google_font_files; progress = true, throw = false, start = 1, filter = x -> !isnothing(x.gpos))
