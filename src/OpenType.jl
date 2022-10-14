@@ -29,16 +29,16 @@ include("traced_io.jl")
 include("error.jl")
 include("options.jl")
 include("parse.jl")
+include("data.jl")
+include("glyphs.jl")
 include("abstractions.jl")
 include("positioning.jl")
 include("substitutions.jl")
-include("data.jl")
-include("glyphs.jl")
 include("font.jl")
 include("char_to_glyph.jl")
 include("text.jl")
 
-export OpenTypeFont, FontOptions, TextOptions, text_glyphs
+export OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, GlyphID, GlyphOffset
 
 
 end

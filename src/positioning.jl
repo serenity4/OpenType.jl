@@ -31,7 +31,7 @@ function positioning_features(gpos::GlyphPositioning, script_tag::Tag, language_
   features
 end
 
-function glyph_offsets(gpos::GlyphPositioning, glyph, script_tag::Tag, language_tag::Tag, disabled_features::Set{Tag})
+function glyph_offsets(gpos::GlyphPositioning, glyphs, script_tag::Tag, language_tag::Tag, disabled_features::Set{Tag})
   glyph_offsets(gpos, glyphs, positioning_features(gpos, script_tag, language_tag, disabled_features))
 end
 
@@ -42,31 +42,29 @@ struct GlyphOffset
   advance::Point{2,Int16}
 end
 
+Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", offset.origin, ", advance = ", offset.advance, ")")
+
 Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
 Base.:(+)(x::GlyphOffset, y::GlyphOffset) = GlyphOffset(x.origin + y.origin, x.advance + y.advance)
 
-function glyph_offsets(gpos::GlyphPositioning, glyphs, features::Vector{Feature})
+glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{SimpleGlyph}, features::Vector{Feature}) = glyph_offsets(gpos, getproperty.(glyphs, :id), features)
+
+function glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})
   glyph_offsets = zeros(GlyphOffset, length(glyphs))
   for rule in positioning_rules(gpos, features)
     for i in eachindex(glyphs)
-      apply_positioning_rule!(glyph_offsets, rule, gpos, glyphs, i)
+      apply_positioning_rule!(glyph_offsets, rule, gpos, i, glyphs, nothing)
     end
   end
   glyph_offsets
 end
 
-function apply_positioning_rule!(glyph_offsets, rule::PositioningRule, gpos::GlyphPositioning, glyphs, i)
-  for subrule in rule.rule_impls
-    apply_positioning_rule!(glyph_offsets, subrule, gpos, glyphs, i)
-  end
-end
-
 function positioning_rules(gpos::GlyphPositioning, features::Vector{Feature})
-  indices = sort!(foldl((x, y) -> vcat(x, y.rule_indices), features; init = UInt16[]))
-  @view gpos.rules[indices .- 1]
+  indices = sort!(foldl((x, y) -> vcat(x, y.lookup_indices), features; init = UInt16[]))
+  @view gpos.rules[indices .+ 1]
 end
 
-function apply_positioning_rule!(glyph_offsets, rule::PositioningRule, gpos::GlyphPositioning, i, glyphs, ligature_component::Optional{Int})
+function apply_positioning_rule!(glyph_offsets, rule, gpos::GlyphPositioning, i, glyphs, ligature_component::Optional{Int})
   (; type, rule_impls) = rule
   if type == POSITIONING_RULE_ADJUSTMENT
     for impl::AdjustmentPositioning in rule_impls
@@ -76,7 +74,7 @@ function apply_positioning_rule!(glyph_offsets, rule::PositioningRule, gpos::Gly
         break
       end
     end
-  elseif in(type, (POSITIONING_RULE_PAIR_ADJUSTMENT, POSITIONING_RULE_MARK_TO_BASE)) && i < lastindex(glyphs)
+  elseif type == POSITIONING_RULE_PAIR_ADJUSTMENT && i < lastindex(glyphs)
     for impl::Union{PairAdjustmentPositioning, ClassPairAdjustmentPositioning} in rule_impls
       ret = apply_positioning_rule(glyphs[i] => glyphs[i + 1], impl)
       if !isnothing(ret)
@@ -127,7 +125,7 @@ struct PairAdjustmentPositioning
 end
 
 function apply_positioning_rule((first, second)::Pair{GlyphID}, pattern::PairAdjustmentPositioning)
-  contains(pattern.coverage, glyph) && return get(pattern.pairs, glyph, nothing)
+  contains(pattern.coverage, first) && return get(pattern.pairs, second, nothing)
   nothing
 end
 
@@ -139,7 +137,7 @@ struct ClassPairAdjustmentPositioning
 end
 
 function apply_positioning_rule((first, second)::Pair{GlyphID}, pattern::ClassPairAdjustmentPositioning)
-  !contains(pattern.coverage, glyph) && return nothing
+  !contains(pattern.coverage, first) && return nothing
   c1 = class(first, pattern.class_first)
   c2 = class(second, pattern.class_second)
   pattern.pairs[c1 + 1][c2 + 1]

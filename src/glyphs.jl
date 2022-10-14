@@ -1,8 +1,11 @@
 const GlyphOutline = Vector{Point{2,Float64}}
 
 struct SimpleGlyph
+    id::GlyphID
     outlines::Vector{GlyphOutline}
 end
+
+Base.show(io::IO, glyph::SimpleGlyph) = print(io, SimpleGlyph, "(", glyph.id, ", ", length(glyph.outlines), " outlines)")
 
 struct CompositeGlyphComponent
     flags::ComponentGlyphFlag
@@ -12,6 +15,7 @@ struct CompositeGlyphComponent
 end
 
 struct CompositeGlyph
+    id::GlyphID
     components::Vector{CompositeGlyphComponent}
 end
 
@@ -68,7 +72,7 @@ end
 """
 Extract absolute points from a `SimpleGlyphTable`, applying offsets and materializing implicit points.
 """
-function SimpleGlyph(glyph::SimpleGlyphTable)
+function SimpleGlyph(id::GlyphID, glyph::SimpleGlyphTable)
     contour_indices = [0; glyph.end_pts_of_contours .+ 1]
     ranges = map(zip(contour_indices[begin:end-1], contour_indices[begin+1:end])) do (i, j)
         (i+1):j
@@ -111,18 +115,22 @@ function SimpleGlyph(glyph::SimpleGlyphTable)
         push!(outlines, points)
         on_curve = true
     end
-    SimpleGlyph(outlines)
+    SimpleGlyph(id, outlines)
 end
 
 CompositeGlyphComponent(data::ComponentGlyphTable) = CompositeGlyphComponent(data.flags, data.glyph_index, (data.argument_1, data.argument_2), data.transform)
 
 function read_glyphs(data::OpenTypeData)
     (; glyf) = data
-    glyphs = Union{SimpleGlyph, CompositeGlyph}[]
-    for glyph in glyf.glyphs
-        isnothing(glyph) && continue
+    glyphs = Union{Nothing, SimpleGlyph, CompositeGlyph}[]
+    for (i, glyph) in enumerate(glyf.glyphs)
+        if isnothing(glyph)
+            push!(glyphs, glyph)
+            continue
+        end
+        glyph_id = GlyphID(i - 1)
         (; data) = glyph
-        push!(glyphs, isa(data, SimpleGlyphTable) ? SimpleGlyph(data) : CompositeGlyph(CompositeGlyphComponent.(data.components)))
+        push!(glyphs, isa(data, SimpleGlyphTable) ? SimpleGlyph(glyph_id, data) : CompositeGlyph(glyph_id, CompositeGlyphComponent.(data.components)))
     end
     glyphs
 end
