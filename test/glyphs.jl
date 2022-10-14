@@ -42,8 +42,7 @@ using GeometryExperiments
     @test extract_points(glyph.data) == glyph_points
 
     @testset "Data extraction" begin
-      # Corresponds to data.glyf.glyphs[64] after removing `nothing` elements.
-      glyph = font.glyphs[58]
+      glyph = font.glyphs[64]
       (; outlines) = glyph
       outline = first(outlines)
       for point in glyph_points
