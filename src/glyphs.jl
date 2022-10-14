@@ -3,6 +3,8 @@ const GlyphOutline = Vector{Point{2,Float64}}
 struct SimpleGlyph
     id::GlyphID
     outlines::Vector{GlyphOutline}
+    # Keep the header around for normalization.
+    header::GlyphHeader
 end
 
 Base.show(io::IO, glyph::SimpleGlyph) = print(io, SimpleGlyph, "(", glyph.id, ", ", length(glyph.outlines), " outlines)")
@@ -72,7 +74,7 @@ end
 """
 Extract absolute points from a `SimpleGlyphTable`, applying offsets and materializing implicit points.
 """
-function SimpleGlyph(id::GlyphID, glyph::SimpleGlyphTable)
+function SimpleGlyph(id::GlyphID, glyph::SimpleGlyphTable, header::GlyphHeader)
     contour_indices = [0; glyph.end_pts_of_contours .+ 1]
     ranges = map(zip(contour_indices[begin:end-1], contour_indices[begin+1:end])) do (i, j)
         (i+1):j
@@ -115,7 +117,7 @@ function SimpleGlyph(id::GlyphID, glyph::SimpleGlyphTable)
         push!(outlines, points)
         on_curve = true
     end
-    SimpleGlyph(id, outlines)
+    SimpleGlyph(id, outlines, header)
 end
 
 CompositeGlyphComponent(data::ComponentGlyphTable) = CompositeGlyphComponent(data.flags, data.glyph_index, (data.argument_1, data.argument_2), data.transform)
@@ -129,8 +131,8 @@ function read_glyphs(data::OpenTypeData)
             continue
         end
         glyph_id = GlyphID(i - 1)
-        (; data) = glyph
-        push!(glyphs, isa(data, SimpleGlyphTable) ? SimpleGlyph(glyph_id, data) : CompositeGlyph(glyph_id, CompositeGlyphComponent.(data.components)))
+        (; data, header) = glyph
+        push!(glyphs, isa(data, SimpleGlyphTable) ? SimpleGlyph(glyph_id, data, header) : CompositeGlyph(glyph_id, CompositeGlyphComponent.(data.components)))
     end
     glyphs
 end
@@ -147,7 +149,10 @@ end
 """
 Return a list of quadratic Bézier curves corresponding to the glyph's outlines.
 """
-function curves(glyph::SimpleGlyph)
+function curves(outlines)
     patch = Patch(BezierCurve(), 3)
-    [[split(outline, patch) for outline in glyph.outlines]...;]
+    [[split(outline, patch) for outline in outlines]...;]
 end
+
+curves(glyph::SimpleGlyph) = curves(glyph.outlines)
+curves_normalized(glyph::SimpleGlyph) = curves(normalize(glyph.outlines, glyph.header))
