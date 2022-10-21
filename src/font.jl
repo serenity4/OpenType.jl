@@ -14,6 +14,8 @@ struct OpenTypeFont
     gpos::GlyphPositioning
 end
 
+Base.broadcastable(font::OpenTypeFont) = Ref(font)
+
 datetime(long::LONGDATETIME) = DateTime(1904, 1, 1) + Second(long)
 
 function OpenTypeFont(data::OpenTypeData)

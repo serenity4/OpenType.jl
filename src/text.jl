@@ -79,4 +79,12 @@ function text_glyphs(font::OpenTypeFont, str::AbstractString; font_options::Font
   t = apply_ansi_styling(t)
   t = chars_to_glyphs(t)
   t = apply_glyph_substitutions(t)
+  @assert font_options.apply_ligatures
+  @assert font_options.apply_kerning
+  # TODO: Restrict features based on user preferences.
+  positions = layout_text(font.gpos, t, text_options.script, text_options.language, Set{Tag}())
+end
+
+function layout_text(font::OpenTypeFont, glyphs)
+  rules = positioning_rules(font.gpos, positioning_features)
 end

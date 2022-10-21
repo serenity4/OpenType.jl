@@ -17,6 +17,8 @@ struct PositioningRule
   rule_impls::Vector{Any}
 end
 
+Base.show(io::IO, rule::PositioningRule) = print(io, PositioningRule, '(', rule.type, ", ", rule.flag, ", ", length(rule.rule_impls), " implementations)")
+
 struct GlyphPositioning
   scripts::Dict{Tag,Script}
   features::Vector{Feature}
@@ -29,10 +31,6 @@ function positioning_features(gpos::GlyphPositioning, script_tag::Tag, language_
   filter!(x -> !in(x.tag, disabled_features), features)
   language.required_feature_index ≠ typemax(UInt16) && pushfirst!(features, gpos.features[language.required_feature_index + 1])
   features
-end
-
-function glyph_offsets(gpos::GlyphPositioning, glyphs, script_tag::Tag, language_tag::Tag, disabled_features::Set{Tag})
-  glyph_offsets(gpos, glyphs, positioning_features(gpos, script_tag, language_tag, disabled_features))
 end
 
 struct GlyphOffset
@@ -52,8 +50,10 @@ glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{SimpleGlyph}, featu
 function glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})
   glyph_offsets = zeros(GlyphOffset, length(glyphs))
   for rule in positioning_rules(gpos, features)
-    for i in eachindex(glyphs)
-      apply_positioning_rule!(glyph_offsets, rule, gpos, i, glyphs, nothing)
+    i = firstindex(glyphs)
+    while i ≤ lastindex(glyphs)
+      next = apply_positioning_rule!(glyph_offsets, rule, gpos, i, glyphs, nothing)
+      i = something(next, i + 1)
     end
   end
   glyph_offsets
@@ -64,6 +64,10 @@ function positioning_rules(gpos::GlyphPositioning, features::Vector{Feature})
   @view gpos.rules[indices .+ 1]
 end
 
+positioning_rules(gpos::GlyphPositioning, script_tag::Tag, language_tag::Tag, disabled_features::Set{Tag} = Set{Tag}()) = positioning_rules(gpos, positioning_features(gpos, script_tag, language_tag, disabled_features))
+
+glyph_offsets(gpos::GlyphPositioning, glyphs, script_tag::Tag, language_tag::Tag, disabled_features::Set{Tag} = Set{Tag}()) = glyph_offsets(gpos, glyphs, positioning_features(gpos, script_tag, language_tag, disabled_features))
+
 function apply_positioning_rule!(glyph_offsets, rule, gpos::GlyphPositioning, i, glyphs, ligature_component::Optional{Int})
   (; type, rule_impls) = rule
   if type == POSITIONING_RULE_ADJUSTMENT
@@ -71,7 +75,7 @@ function apply_positioning_rule!(glyph_offsets, rule, gpos::GlyphPositioning, i,
       offset = apply_positioning_rule(glyphs[i], impl)
       if !isnothing(offset)
         glyph_offsets[i] += offset
-        break
+        return i + 1
       end
     end
   elseif type == POSITIONING_RULE_PAIR_ADJUSTMENT && i < lastindex(glyphs)
@@ -80,7 +84,7 @@ function apply_positioning_rule!(glyph_offsets, rule, gpos::GlyphPositioning, i,
       if !isnothing(ret)
         glyph_offsets[i] += ret.first
         glyph_offsets[i + 1] += ret.second
-        break
+        return ret.second == zero(GlyphOffset) ? i + 1 : i + 2
       end
     end
   elseif in(type, (POSITIONING_RULE_CURSIVE, POSITIONING_RULE_MARK_TO_BASE, POSITIONING_RULE_MARK_TO_LIGATURE, POSITIONING_RULE_MARK_TO_MARK)) && i > firstindex(glyphs)
@@ -89,7 +93,7 @@ function apply_positioning_rule!(glyph_offsets, rule, gpos::GlyphPositioning, i,
         offset = apply_positioning_rule(glyphs[i - 1] => glyphs[i], impl, ligature_component::Int)
         if !isnothing(offset)
           glyph_offsets[i] += offset
-          break
+          return i + 1
         end
       end
     else
@@ -97,12 +101,23 @@ function apply_positioning_rule!(glyph_offsets, rule, gpos::GlyphPositioning, i,
         offset = apply_positioning_rule(glyphs[i - 1] => glyphs[i], impl)
         if !isnothing(offset)
           glyph_offsets[i] += offset
-          break
+          return i + 1
         end
       end
     end
   elseif type == POSITIONING_RULE_CONTEXTUAL
-    # TODO
+    for impl::ContextualRule in rule_impls
+      last_matched = contextual_match(i, glyphs, impl) do rules
+        jmax = 0
+        for (seq_index, lookup_index) in rules
+          j = i + (seq_index - 1)
+          jmax = max(jmax, j)
+          apply_positioning_rule!(glyph_offsets, gpos.rules[lookup_index], j, glyphs, ligature_component)
+        end
+        jmax
+      end
+      !isnothing(last_matched) && return last_matched + 1
+    end
   elseif type == POSITIONING_RULE_CONTEXTUAL_CHAINED
     # TODO
   end

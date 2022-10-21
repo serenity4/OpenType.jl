@@ -32,6 +32,8 @@ struct OpenTypeData
     gpos::Optional{GlyphPositioningTable}
 end
 
+Base.broadcastable(data::OpenTypeData) = Ref(data)
+
 """
 Read OpenType font data from `io`.
 

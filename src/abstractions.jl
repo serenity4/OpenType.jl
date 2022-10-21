@@ -80,32 +80,49 @@ function class(glyph::GlyphID, def::ClassDefinition)
 end
 
 struct SequenceEntry
-  tail::Union{Vector{GlyphID}, Vector{ClassID}}
+  tail::Vector{UInt16}
   rules::Vector{Pair{UInt16,UInt16}} # sequence index => rule index
 end
 
 struct ContextualRule
   coverage::Optional{Coverage}
-  glyph_sequences::Optional{Vector{Vector{SequenceEntry}}}
-  class_sequences::Optional{Vector{Vector{SequenceEntry}}}
+  glyph_sequences::Optional{Vector{Optional{Vector{SequenceEntry}}}} # coverage index => sequence index
+  class_sequences::Optional{Vector{Optional{Vector{SequenceEntry}}}} # coverage index => sequence index
   class_definition::Optional{ClassDefinition}
   coverage_sequences::Optional{Vector{Coverage}}
   coverage_rules::Optional{Vector{Pair{UInt16,UInt16}}} # sequence index => rule index
 end
 
-function contextual_match(f, xs, pattern)
-  head, tail... = xs
-  if contains(pattern.coverage, head)
-    for sequence in pattern.sequences
-      sequence.tail_match == tail && return f(xs, sequence)
+function contextual_match(f, i, glyphs, rule::ContextualRule)
+  (; coverage, glyph_sequences, class_sequences, class_definition, coverage_sequences, coverage_rules) = rule
+  if !isnothing(coverage)
+    j = match(coverage, glyphs[i])
+    isnothing(j) && return nothing
+    if !isnothing(glyph_sequences)
+      sequences = glyph_sequences[j]
+      isnothing(sequences) && return nothing
+      for sequence in sequences
+        all(sequence.tail[k] == glyphs[i + (k - 1)] for k in eachindex(sequence.tail)) && return f(sequence.rules)
+      end
+    elseif !isnothing(class_sequences)
+      sequences = class_sequences[j]
+      isnothing(sequences) && return nothing
+      class_definition::ClassDefinition
+      for sequence in sequences
+        all(sequence.tail[k] == class(glyphs[i + (k - 1)], class_definition) for k in eachindex(sequence.tail)) && return f(sequence.rules)
+      end
     end
+  else
+    coverage_sequences::Vector{Coverage}
+    all(contains(coverage_sequences[k], glyphs[i + (k - 1)]) for k in eachindex(coverage_sequences)) && return coverage_rules::Vector{Pair{UInt16,UInt16}}
   end
+  nothing
 end
 
 struct ChainMatch
-  backtrack_sequence::Union{Vector{GlyphID}, Vector{ClassID}}
-  tail::Union{Vector{GlyphID}, Vector{ClassID}}
-  lookahead_sequence::Union{Vector{GlyphID}, Vector{ClassID}}
+  backtrack_sequence::Vector{UInt16}
+  tail::Vector{UInt16}
+  lookahead_sequence::Vector{UInt16}
   rules::Vector{Pair{UInt16,UInt16}} # sequence index => rule index
 end
 

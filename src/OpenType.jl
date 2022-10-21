@@ -38,7 +38,7 @@ include("font.jl")
 include("char_to_glyph.jl")
 include("text.jl")
 
-export OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, GlyphID, GlyphOffset
+export GlyphID, GlyphOffset, OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, positioning_rules
 
 
 end

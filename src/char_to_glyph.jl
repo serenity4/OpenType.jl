@@ -11,7 +11,7 @@ end
 """
 Get the glyph index corresponding to the character `char`.
 """
-function glyph_index(font::OpenTypeFont, char::Char)
+function glyph_index(font::OpenTypeFont, char::Char)::GlyphID
     table = font.cmap.subtables[font.cmap_subtable_index]
     if table isa ByteEncodingTable
         return table.glyph_id_array[UInt8(char)]

@@ -8,4 +8,6 @@ Base.@kwdef struct TextOptions
   font_size::Float64 = 12
   line_spacing::Float64 = 1
   max_line_length::Float64 = 92
+  script::Tag = "DFLT"
+  language::Tag = "dflt"
 end
