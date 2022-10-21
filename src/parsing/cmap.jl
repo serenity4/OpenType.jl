@@ -90,7 +90,10 @@ Base.read(io::IO, ::Type{CmapSubtable{2}}) = read(io, HighByteMappingThroughTabl
     start_code::Vector{UInt16} => segcount_x2 ÷ 2
     id_delta::Vector{Int16} => segcount_x2 ÷ 2
     id_range_offsets::Vector{UInt16} => segcount_x2 ÷ 2
-    glyph_id_array::Vector{UInt16} => segcount_x2 ÷ 2
+    # This array runs until the end of the table, as indicated by the `length` field.
+    # The number of elements is computed based on the number of bytes remaining from
+    # the current position and on the field size (2 bytes).
+    glyph_id_array::Vector{UInt16} => (length - (position(io) - __origin__)) ÷ 2
 end
 
 Base.read(io::IO, ::Type{CmapSubtable{4}}) = read(io, SegmentMappingToDeltaValues)

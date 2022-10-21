@@ -41,7 +41,7 @@ function glyph_index(font::OpenTypeFont, char::Char)::GlyphID
         char_offset = char_uint - start
         # See https://stackoverflow.com/questions/57461636/how-to-correctly-understand-truetype-cmaps-subtable-format-4
         # to get this expression from the pointer arithmetic described in the specification.
-        glyph_id = table.glyph_id_array[segment_id - end + Int(range_offset / 2) + char_offset]
+        glyph_id = table.glyph_id_array[segment_id - length(table.end_code) + Int(range_offset / 2) + char_offset]
         iszero(glyph_id) && return glyph_id
         return delta + glyph_id
     else

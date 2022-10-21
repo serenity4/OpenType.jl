@@ -35,7 +35,6 @@ Matching can be done either by individual glyphs or by glyph ranges.
 """
 struct Coverage
   ranges::Vector{UnitRange{GlyphID}}
-  start_coverage_index::UInt16
   glyphs::Vector{GlyphID}
 end
 
@@ -46,8 +45,11 @@ function Base.match(coverage::Coverage, glyph::GlyphID)
   for (i, g) in enumerate(coverage.glyphs)
     g == glyph && return i
   end
+  i = 0
   for range in coverage.ranges
-    in(glyph, range) && return 1 + glyph - coverage.start_coverage_index
+    j = findfirst(==(glyph), range)
+    !isnothing(j) && return i + j
+    i += length(range)
   end
   nothing
 end
@@ -160,8 +162,8 @@ function Feature(record::FeatureRecord)
   Feature(record.feature_tag, table.lookup_list_indices)
 end
 
-Coverage(table::CoverageTableFormat1) = Coverage(UnitRange{GlyphID}[], 0, table.glyph_array)
-Coverage(table::CoverageTableFormat2) = Coverage([record.start_glyph_id:record.end_glyph_id for record in table.range_records], first(table.range_records).start_coverage_index, GlyphID[])
+Coverage(table::CoverageTableFormat1) = Coverage(UnitRange{GlyphID}[], table.glyph_array)
+Coverage(table::CoverageTableFormat2) = Coverage([record.start_glyph_id:record.end_glyph_id for record in table.range_records], GlyphID[])
 
 ClassDefinition(def::ClassDefinitionTableFormat1) = ClassDefinition(RangeClass[], def.class_value_array, def.start_glyph_id)
 ClassDefinition(def::ClassDefinitionTableFormat2) = ClassDefinition(RangeClass.(def.class_range_records), ClassID[], 0)

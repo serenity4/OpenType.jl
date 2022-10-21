@@ -1,28 +1,35 @@
-using OpenType: glyph_index, HorizontalMetric
+using OpenType: glyph_index, horizontal_metric
 using GeometryExperiments
 
-function horizontal_metric(data::OpenTypeData, glyph::GlyphID)
-  (; metrics, left_side_bearings) = data.hmtx
-  idx = glyph + 1
-  idx > length(metrics) && return HorizontalMetric(last(metrics).advance_width, left_side_bearings[idx - length(metrics)])
-  metrics[idx]
-end
-
-function computed_offsets(data::OpenTypeData, font::OpenTypeFont, text::AbstractString; apply_positioning = true)
+function computed_offsets(font::OpenTypeFont, text::AbstractString; apply_positioning = true, script = "latn", lang = "AZE ")
   glyph_ids = glyph_index.(font, collect(text))
   glyphs = getindex.(Ref(font.glyphs), glyph_ids .+ 1)
-  offsets = [GlyphOffset(Point(0, 0), Point(metric.advance_width, 0)) for metric in [horizontal_metric(data, id) for id in glyph_ids]]
+  offsets = [GlyphOffset(Point(0, 0), Point(metric.advance_width, 0)) for metric in [horizontal_metric(font.hmtx, id) for id in glyph_ids]]
   !apply_positioning && return offsets
-  offsets .+ glyph_offsets(font.gpos, glyphs, "latn", "AZE ", Set{String}())
+  offsets .+ glyph_offsets(font.gpos, glyphs, script, lang, Set{String}())
 end
 
-@testset "Shaping" begin
-  # A font with ligatures and kerning.
-  file = first(google_font_files["notoserifgujarati"])
-  data = OpenTypeData(file);
-  font = OpenTypeFont(data);
+get_offsets(font::OpenTypeFont, text::AbstractString, script = "DFLT", lang = "dflt") = glyph_offsets(font.gpos, getindex.(font, collect(text)), script, lang, Set{String}())
+offsets_devanagari(font, text) = get_offsets(font, text, "deva", "HIN ")
 
-  text = "AV"
-  @test computed_offsets(data, font, text; apply_positioning = false) == [GlyphOffset(Point(0, 0), Point(705, 0)), GlyphOffset(Point(0, 0), Point(675, 0))]
-  @test computed_offsets(data, font, text) == [GlyphOffset(Point(0, 0), Point(665, 0)), GlyphOffset(Point(0, 0), Point(675, 0))]
+@testset "Shaping" begin
+  # A font with kerning.
+  font = OpenTypeFont(first(google_font_files["notoserifgujarati"]));
+  @test computed_offsets(font, "AV"; apply_positioning = false) == [GlyphOffset(Point(0, 0), Point(705, 0)), GlyphOffset(Point(0, 0), Point(675, 0))]
+  @test computed_offsets(font, "AV") == [GlyphOffset(Point(0, 0), Point(665, 0)), GlyphOffset(Point(0, 0), Point(675, 0))]
+
+  # Lao script & language. Has lots of diacritic marks for use with mark-to-base and mark-to-mark positioning tests.
+  font = OpenTypeFont(first(google_font_files["notoseriflao"]));
+
+  # Simple mark-to-base positioning.
+  @test get_offsets(font, "ສົ", "lao ") == [zero(GlyphOffset), GlyphOffset(Point(-597, 0), Point(0, 0))]
+  @test get_offsets(font, "ກີບ", "lao ") == [zero(GlyphOffset), GlyphOffset(Point(-629, 0), Point(0, 0)), zero(GlyphOffset)]
+
+  # Mark-to-base and mark-to-mark positioning. The text may not be rendered correctly on an editor, but marks should neatly stack on top of each other so that we have three distinct graphemes: the base, first mark above the base, and second mark above the mark.
+  # TODO: Finalize test once advances are also computed so that we can check the result.
+  # @test get_offsets(font, "ນີ້", "lao ") == [zero(GlyphOffset), GlyphOffset(Point(-629, 0), Point(0, 0)), zero(GlyphOffset)]
+
+  # Hindi language, based on the Devanagari script. Seems to have lots of substitutions including contextual substitutions.
+  font = OpenTypeFont(first(google_font_files["notoserifdevanagari"]));
+  # TODO
 end

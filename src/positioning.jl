@@ -45,6 +45,13 @@ Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", of
 Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
 Base.:(+)(x::GlyphOffset, y::GlyphOffset) = GlyphOffset(x.origin + y.origin, x.advance + y.advance)
 
+function horizontal_metric(hmtx::HorizontalMetrics, glyph::GlyphID)
+  (; metrics, left_side_bearings) = hmtx
+  i = glyph + 1
+  i > length(metrics) && return HorizontalMetric(last(metrics).advance_width, left_side_bearings[i - length(metrics)])
+  metrics[i]
+end
+
 glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{SimpleGlyph}, features::Vector{Feature}) = glyph_offsets(gpos, getproperty.(glyphs, :id), features)
 
 function glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})
@@ -188,15 +195,15 @@ struct MarkToBaseRule
   mark_anchors::Vector{MarkAnchor} # indexed by mark coverage index
 end
 
-function apply_positioning_rule((mark, base)::Pair{GlyphID}, rule::MarkToBaseRule)
-  i = match(rule.mark_coverage, mark)
+function apply_positioning_rule((base, mark)::Pair{GlyphID}, rule::MarkToBaseRule)
+  i = match(rule.base_coverage, base)
   isnothing(i) && return nothing
-  j = match(rule.base_coverage, base)
+  j = match(rule.mark_coverage, mark)
   isnothing(j) && return nothing
-  mark_anchor = rule.mark_anchors[i]
-  base_anchor = rule.base_anchor_indices[j][mark_anchor.class + 1]
+  mark_anchor = rule.mark_anchors[j]
+  base_anchor = rule.base_anchor_indices[i][mark_anchor.class + 1]
   isnothing(base_anchor) && return nothing
-  base_anchor - mark_anchor
+  GlyphOffset(mark_anchor.anchor - base_anchor, zero(Point{2,Int16}))
 end
 
 struct MarkToLigatureRule
@@ -206,15 +213,15 @@ struct MarkToLigatureRule
   mark_anchors::Vector{MarkAnchor} # indexed by mark coverage index
 end
 
-function apply_positioning_rule((mark, ligature)::Pair{GlyphID}, rule::MarkToLigatureRule, ligature_component)
-  i = match(rule.mark_coverage, mark)
+function apply_positioning_rule((ligature, mark)::Pair{GlyphID}, rule::MarkToLigatureRule, ligature_component)
+  i = match(rule.ligature_coverage, ligature)
   isnothing(i) && return nothing
-  j = match(rule.ligature_coverage, ligature)
+  j = match(rule.mark_coverage, mark)
   isnothing(j) && return nothing
-  mark_anchor = rule.mark_anchors[i]
-  base_anchor = rule.base_anchor_indices[j][ligature_component][mark_anchor.class + 1]
+  mark_anchor = rule.mark_anchors[j]
+  base_anchor = rule.base_anchor_indices[i][ligature_component][mark_anchor.class + 1]
   isnothing(base_anchor) && return nothing
-  base_anchor - mark_anchor
+  GlyphOffset(mark_anchor.anchor - base_anchor, zero(Point{2,Int16}))
 end
 
 struct MarkToMarkRule
@@ -224,15 +231,15 @@ struct MarkToMarkRule
   mark_anchors::Vector{MarkAnchor} # indexed by mark coverage index
 end
 
-function apply_positioning_rule((mark, base_mark)::Pair{GlyphID}, rule::MarkToMarkRule)
-  i = match(rule.mark_coverage, mark)
+function apply_positioning_rule((base_mark, mark)::Pair{GlyphID}, rule::MarkToMarkRule)
+  i = match(rule.base_mark_coverage, base_mark)
   isnothing(i) && return nothing
-  j = match(rule.base_mark_coverage, base_mark)
+  j = match(rule.mark_coverage, mark)
   isnothing(j) && return nothing
-  mark_anchor = rule.mark_anchors[i]
+  mark_anchor = rule.mark_anchors[j]
   base_anchor = rule.base_mark_anchors[j][mark_anchor.class + 1]
   isnothing(base_anchor) && return nothing
-  base_anchor - mark_anchor
+  GlyphOffset(mark_anchor.anchor - base_anchor, zero(Point{2,Int16}))
 end
 
 # -----------------------------------

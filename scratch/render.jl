@@ -2,6 +2,7 @@ using OpenType
 using OpenType: curves, curves_normalized
 using GeometryExperiments
 using GeometryExperiments: BezierCurve
+using Plots: plot, plot!, scatter!, heatmap, xticks!, yticks!
 
 function intensity(curve_points, pixel_per_em)
     @assert length(curve_points) == 3
@@ -50,7 +51,6 @@ function intensity(point, glyph::OpenType.SimpleGlyph, units_per_em; font_size=1
     end
     sqrt(abs(res))
 end
-
 
 function plot_outline(glyph)
     cs = curves(glyph)
@@ -101,9 +101,12 @@ end
 
 render_glyph(font, char::Char, font_size) = render_glyph(font, font[char], font_size)
 
-using Plots
+# `font_file` defined in `test/utils.jl`.
+# You can use your own font and skip reassigning the variable.
+font = OpenTypeFont(font_file("juliamono"));
 
-font = OpenTypeFont(joinpath(dirname(@__DIR__), "assets", "fonts", "juliamono-regular.ttf"));
+# Note that indices to `font.glyphs` correspond to `glyph_id + 1`.
+# You can use `font[GlyphID(id)]` to directly access a glyph by its ID.
 
 glyph = font.glyphs[563]
 
@@ -120,5 +123,4 @@ plot_outline(glyph)
 render_glyph(font, glyph, 12)
 
 render_glyph(font, '€', 12)
-
 render_glyph(font, 'A', 12)

@@ -12,6 +12,7 @@ struct OpenTypeFont
     cmap_subtable_index::Int
     glyphs::Vector{Union{Nothing,SimpleGlyph,CompositeGlyph}}
     gpos::GlyphPositioning
+    hmtx::HorizontalMetrics
 end
 
 Base.broadcastable(font::OpenTypeFont) = Ref(font)
@@ -26,9 +27,10 @@ function OpenTypeFont(data::OpenTypeData)
     isnothing(cmap_subtable_index) && error("No supported subtable for the character to glyph mapping was found. Supported formats are 12, 10, 4, 6 and 0.")
     !isnothing(data.gpos) || error("Only fonts with GPOS tables are supported.")
     (; head) = data
-    OpenTypeFont(datetime(head.created), datetime(head.modified), in(FONT_LAST_RESORT, head.flags), head.units_per_em, data.cmap, cmap_subtable_index, glyphs, GlyphPositioning(data.gpos))
+    OpenTypeFont(datetime(head.created), datetime(head.modified), in(FONT_LAST_RESORT, head.flags), head.units_per_em, data.cmap, cmap_subtable_index, glyphs, GlyphPositioning(data.gpos), data.hmtx)
 end
 
-Base.getindex(font::OpenTypeFont, char::Char) = font.glyphs[1 + glyph_index(font, char)]
+Base.getindex(font::OpenTypeFont, char::Char) = font[glyph_index(font, char)]
+Base.getindex(font::OpenTypeFont, id::GlyphID) = font.glyphs[1 + id]
 
 OpenTypeFont(file::AbstractString) = OpenTypeFont(OpenTypeData(file))
