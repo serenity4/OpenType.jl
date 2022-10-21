@@ -1,5 +1,4 @@
 using OpenType: glyph_index, HorizontalMetric
-using JSON3
 using GeometryExperiments
 
 function horizontal_metric(data::OpenTypeData, glyph::GlyphID)
