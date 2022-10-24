@@ -9,14 +9,11 @@ function word_align(size)
     4 * cld(size, 4)
 end
 
-read_tag(io::IO) = String([read(io, UInt8) for _ in 1:4])
-
 function read_expr(field, linenum::LineNumberNode)
     if isexpr(field, :(::))
         T = field.args[2]
         isexpr(T, :curly) && T.args[1] == :Vector && error("Vectors must have a corresponding length.")
         isexpr(T, :curly) && T.args[1] == :NTuple && return :(Tuple(read(io, $(T.args[2]) for _ in 1:$(T.args[3]))))
-        T == :Tag && return :(read_tag(io))
         T == :String && error("Strings are not supported yet.")
         return :(read(io, $T))
     elseif isexpr(field, :call) && field.args[1] == :(=>)

@@ -22,9 +22,8 @@ const F2DOT14 = Int16
 f2dot14_to_float(x::F2DOT14) = Float64(x >> 14) + 1e-14 * x << 2
 const LONGDATETIME = Int64
 const Fixed = UInt32
-"4-byte string."
-const Tag = String
 
+include("tags.jl")
 include("traced_io.jl")
 include("error.jl")
 include("options.jl")
@@ -34,11 +33,12 @@ include("glyphs.jl")
 include("abstractions.jl")
 include("positioning.jl")
 include("substitutions.jl")
+include("shaping.jl")
 include("font.jl")
 include("char_to_glyph.jl")
 include("text.jl")
 
-export GlyphID, GlyphOffset, OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, positioning_rules
+export GlyphID, GlyphOffset, OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, positioning_rules, @tag_str, @tag2_str, @tag3_str, @tag4_str
 
 
 end

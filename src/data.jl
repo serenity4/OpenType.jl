@@ -71,24 +71,24 @@ function TableNavigationMap(io::Union{SwapStream,TracedIO{<:SwapStream}})
 end
 
 function Base.read(io::Union{SwapStream,TracedIO{<:SwapStream}}, ::Type{OpenTypeData}, table_directory::TableDirectory, nav::TableNavigationMap)
-    cmap = read_table(Base.Fix2(read, CharacterToGlyphIndexMappingTable), io, nav, "cmap")::CharacterToGlyphIndexMappingTable
-    head = read_table(Base.Fix2(read, FontHeader), io, nav, "head")::FontHeader
-    hhea = read_table(Base.Fix2(read, HorizontalHeader), io, nav, "hhea")::HorizontalHeader
-    maxp = read_table(Base.Fix2(read, MaximumProfile), io, nav, "maxp")::MaximumProfile
-    hmtx = read_table(io -> read(io, HorizontalMetrics, hhea, maxp), io, nav, "hmtx")::HorizontalMetrics
+    cmap = read_table(Base.Fix2(read, CharacterToGlyphIndexMappingTable), io, nav, tag"cmap")::CharacterToGlyphIndexMappingTable
+    head = read_table(Base.Fix2(read, FontHeader), io, nav, tag"head")::FontHeader
+    hhea = read_table(Base.Fix2(read, HorizontalHeader), io, nav, tag"hhea")::HorizontalHeader
+    maxp = read_table(Base.Fix2(read, MaximumProfile), io, nav, tag"maxp")::MaximumProfile
+    hmtx = read_table(io -> read(io, HorizontalMetrics, hhea, maxp), io, nav, tag"hmtx")::HorizontalMetrics
 
     # TrueType outlines.
-    loca = read_table(io -> read(io, IndexToLocation, maxp, head), io, nav, "loca")
-    glyf = read_table(io -> read(io, GlyphTable, head, maxp, nav, loca), io, nav, "glyf")
-    vhea = read_table(Base.Fix2(read, VerticalHeader), io, nav, "vhea")
-    vmtx = read_table(io -> read(io, VerticalMetrics, vhea, maxp), io, nav, "vmtx")
+    loca = read_table(io -> read(io, IndexToLocation, maxp, head), io, nav, tag"loca")
+    glyf = read_table(io -> read(io, GlyphTable, head, maxp, nav, loca), io, nav, tag"glyf")
+    vhea = read_table(Base.Fix2(read, VerticalHeader), io, nav, tag"vhea")
+    vmtx = read_table(io -> read(io, VerticalMetrics, vhea, maxp), io, nav, tag"vmtx")
 
     # Font variations.
-    avar = read_table(Base.Fix2(read, AxisVariationsTable), io, nav, "avar")
-    fvar = read_table(Base.Fix2(read, FontVariationsTable), io, nav, "fvar")
+    avar = read_table(Base.Fix2(read, AxisVariationsTable), io, nav, tag"avar")
+    fvar = read_table(Base.Fix2(read, FontVariationsTable), io, nav, tag"fvar")
 
     # Advanced typographic tables.
-    gpos = read_table(Base.Fix2(read, GlyphPositioningTable), io, nav, "GPOS")
+    gpos = read_table(Base.Fix2(read, GlyphPositioningTable), io, nav, tag"GPOS")
 
     OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gpos)
 end

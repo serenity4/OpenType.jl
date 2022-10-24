@@ -1,5 +1,5 @@
 @serializable struct TableRecord
-    tag::Tag
+    tag::Tag{4}
     checksum::UInt32
     offset::UInt32
     length::UInt32
@@ -42,7 +42,7 @@ function checksum(io::IO, tr::TableRecord)
     sum = zero(UInt32)
     seek(io, tr.offset)
     # Special-case the 'head' table which contains a checksum inside of it.
-    ishead = tr.tag == "head"
+    ishead = tr.tag == tag"head"
     for i in 1:cld(tr.length, 4)
         if i == 3 && ishead
             skip(io, 4)
@@ -55,15 +55,15 @@ function checksum(io::IO, tr::TableRecord)
 end
 
 struct TableNavigationMap
-    map::Dict{String,TableRecord}
+    map::Dict{Tag{4},TableRecord}
 end
 
 TableNavigationMap(records::Vector{TableRecord}) = TableNavigationMap(Dict(rec.tag => rec for rec in records))
 
-const REQUIRED_TABLES = ["cmap", "head", "hhea", "hmtx", "maxp", "name", "OS/2", "post"]
+const REQUIRED_TABLES = [tag"cmap", tag"head", tag"hhea", tag"hmtx", tag"maxp", tag"name", tag"OS/2", tag"post"]
 
 function verify_checksums(io::IO, nav::TableNavigationMap)
-    head_tr = get(nav, "head", nothing)
+    head_tr = get(nav, tag"head", nothing)
     !isnothing(head_tr) || return InvalidFontException("'head' table required")
 
     ret = verify_font_checksum(io, head_tr)
@@ -78,7 +78,7 @@ end
 Base.getindex(nav::TableNavigationMap, key) = nav.map[key]
 Base.get(nav::TableNavigationMap, key, default) = get(nav.map, key, default)
 
-function read_table(f, io::IO, nav::TableNavigationMap, table::AbstractString; kwargs...)
+function read_table(f, io::IO, nav::TableNavigationMap, table::Tag{4}; kwargs...)
     record = get(nav, table, nothing)
     if isnothing(record)
         table in REQUIRED_TABLES && error_invalid_font(

@@ -1,28 +1,28 @@
 struct Feature
-  tag::Tag
+  tag::Tag{4}
   lookup_indices::Vector{UInt16}
 end
 
 struct LanguageSystem
-  tag::Tag
+  tag::Tag{4}
   required_feature_index::UInt16
   feature_indices::Vector{UInt16}
 end
 
 struct Script
-  tag::Tag
+  tag::Tag{4}
   languages::Vector{LanguageSystem}
   default_language::Optional{LanguageSystem}
 end
 
-function LanguageSystem(script_tag::Tag, language_tag::Tag, scripts::Dict{Tag,Script})
+function LanguageSystem(script_tag::Tag{4}, language_tag::Tag{4}, scripts::Dict{Tag{4},Script})
   script = get(scripts, script_tag, nothing)
   isnothing(script) && error("Script '$script_tag' not found.")
   language_idx = findfirst(x -> x.tag == language_tag, script.languages)
   !isnothing(language_idx) && return script.languages[language_idx]
   !isnothing(script.default_language) && return script.default_language
-  if language_tag ≠ "DFLT"
-      language_idx = findfirst(x -> x.tag == "DFLT", script.languages)
+  if language_tag ≠ tag"DFLT"
+      language_idx = findfirst(x -> x.tag == tag"DFLT", script.languages)
       !isnothing(language_idx) && return script.languages[language_idx]
   end
   error("No matching language entry found for the language '$language_tag)'")
@@ -148,7 +148,7 @@ function Script(record::ScriptRecord)
   table = record.script_table
   languages = LanguageSystem.(table.lang_sys_records)
   default_language = nothing
-  !isnothing(table.default_lang_sys_table) && (default_language = LanguageSystem("dflt", table.default_lang_sys_table.required_feature_index, table.default_lang_sys_table.feature_indices))
+  !isnothing(table.default_lang_sys_table) && (default_language = LanguageSystem(tag"dflt", table.default_lang_sys_table.required_feature_index, table.default_lang_sys_table.feature_indices))
   Script(record.script_tag, languages, default_language)
 end
 

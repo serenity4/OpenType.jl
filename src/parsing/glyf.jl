@@ -171,7 +171,7 @@ function Base.read(io::IO, ::Type{GlyphTable}, head::FontHeader, maxp::MaximumPr
     glyphs = map(ranges) do range
         # A glyph for which the range is of zero length has no outline.
         range.stop == range.start && return nothing
-        seek(io, nav["glyf"].offset + range.start)
+        seek(io, nav[tag"glyf"].offset + range.start)
         header = read(io, GlyphHeader)
         data = if header.ncontours == -1
             read(io, CompositeGlyphTable)
