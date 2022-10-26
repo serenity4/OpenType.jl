@@ -45,13 +45,6 @@ Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", of
 Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
 Base.:(+)(x::GlyphOffset, y::GlyphOffset) = GlyphOffset(x.origin + y.origin, x.advance + y.advance)
 
-function horizontal_metric(hmtx::HorizontalMetrics, glyph::GlyphID)
-  (; metrics, left_side_bearings) = hmtx
-  i = glyph + 1
-  i > length(metrics) && return HorizontalMetric(last(metrics).advance_width, left_side_bearings[i - length(metrics)])
-  metrics[i]
-end
-
 glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{SimpleGlyph}, features::Vector{Feature}) = glyph_offsets(gpos, getproperty.(glyphs, :id), features)
 
 function glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})

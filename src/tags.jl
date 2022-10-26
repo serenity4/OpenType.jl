@@ -25,6 +25,7 @@ macro tag4_str(str) Tag{4}(str) end
 Base.read(io::IO, T::Type{Tag{N}}) where {N} = T(ntuple(_ -> read(io, UInt8), N))
 Base.show(io::IO, tag::Tag) = print(io, '"', join(Char.(tag.data)), '"')
 Base.convert(::Type{Tag}, str::AbstractString) = Tag(str)
+Base.convert(::Type{Tag{N}}, str::AbstractString) where {N} = Tag{N}(str)
 
 include("generated/tags.jl")
 

@@ -33,12 +33,12 @@ include("glyphs.jl")
 include("abstractions.jl")
 include("positioning.jl")
 include("substitutions.jl")
-include("shaping.jl")
 include("font.jl")
 include("char_to_glyph.jl")
+include("shaping.jl")
 include("text.jl")
 
-export GlyphID, GlyphOffset, OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, positioning_rules, @tag_str, @tag2_str, @tag3_str, @tag4_str
+export GlyphID, GlyphOffset, OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, positioning_rules, @tag_str, @tag2_str, @tag3_str, @tag4_str, shape, ShapingOptions
 
 
 end

@@ -6,6 +6,7 @@ using Test
   t = Tag("FRA ")
   @test isa(t, Tag{4})
   @test convert(Tag, "FRA ") === t
+  @test convert(Tag{4}, "FRA ") === t
   @test tag"FRA " === t
   @test tag"FRA" !== tag"FRA "
   @test isa(tag"FRA", Tag{3})
@@ -22,12 +23,12 @@ using Test
     @test find_language_tag(tag"fr") === res
     @test find_language_tag(tag"FR") === res
 
-    # "cdo" is a part of the Chinese macrolanguage "zho".
-    # "zho" has several typographic languages (e.g. simplified and traditional Chinese), with no canonical choice.
+    # "cdo" is part of the Chinese macrolanguage "zho".
+    # "zho" has several typographic languages in OpenType (e.g. simplified and traditional Chinese), with no canonical choice.
     # Therefore what we get is the last entry in the dictionary that overwrites the previous ones.
-    # Applications willing to take a particular typographic language will need to provide the OpenType language tag.
-    # TODO: Allow typographic languages to be specified with IETF BCP 47 language tags, e.g. zh-CN (simplified Chinese)
-    # and zh-TW (traditional Chinese).
+    # Applications willing to take a particular typographic language will need to provide the OpenType language tag at the moment.
+    # TODO: Allow typographic languages to be specified with IETF BCP 47 language tags, e.g. zh-CN (Chinese, mainland China - often used to denote simplified Chinese)
+    # and zh-TW (Chinese, Taiwan - often used to denote traditional Chinese).
     @test find_language_tag(tag"cdo") == tag"ZHTM"
   end
 
