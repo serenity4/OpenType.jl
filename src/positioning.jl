@@ -33,6 +33,13 @@ function positioning_features(gpos::GlyphPositioning, script_tag::Tag{4}, langua
   features
 end
 
+function positioning_rules(gpos::GlyphPositioning, features::Vector{Feature})
+  indices = sort!(foldl((x, y) -> vcat(x, y.lookup_indices), features; init = UInt16[]))
+  @view gpos.rules[indices .+ 1]
+end
+
+positioning_rules(gpos::GlyphPositioning, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = positioning_rules(gpos, positioning_features(gpos, script_tag, language_tag, disabled_features))
+
 struct GlyphOffset
   "Offset to the origin of the glyph."
   origin::Point{2,Int16}
@@ -45,10 +52,9 @@ Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", of
 Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
 Base.:(+)(x::GlyphOffset, y::GlyphOffset) = GlyphOffset(x.origin + y.origin, x.advance + y.advance)
 
-glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{SimpleGlyph}, features::Vector{Feature}) = glyph_offsets(gpos, getproperty.(glyphs, :id), features)
+apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = apply_positioning_rules!(glyph_offsets, gpos, glyphs, positioning_features(gpos, script_tag, language_tag, disabled_features))
 
-function glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})
-  glyph_offsets = zeros(GlyphOffset, length(glyphs))
+function apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})
   for rule in positioning_rules(gpos, features)
     i = firstindex(glyphs)
     while i ≤ lastindex(glyphs)
@@ -59,16 +65,7 @@ function glyph_offsets(gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, 
   glyph_offsets
 end
 
-function positioning_rules(gpos::GlyphPositioning, features::Vector{Feature})
-  indices = sort!(foldl((x, y) -> vcat(x, y.lookup_indices), features; init = UInt16[]))
-  @view gpos.rules[indices .+ 1]
-end
-
-positioning_rules(gpos::GlyphPositioning, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = positioning_rules(gpos, positioning_features(gpos, script_tag, language_tag, disabled_features))
-
-glyph_offsets(gpos::GlyphPositioning, glyphs, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = glyph_offsets(gpos, glyphs, positioning_features(gpos, script_tag, language_tag, disabled_features))
-
-function apply_positioning_rule!(glyph_offsets, rule, gpos::GlyphPositioning, i, glyphs, ligature_component::Optional{Int})
+function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rule::PositioningRule, gpos::GlyphPositioning, i::Int, glyphs::AbstractVector{GlyphID}, ligature_component::Optional{Int})
   (; type, rule_impls) = rule
   if type == POSITIONING_RULE_ADJUSTMENT
     for impl::AdjustmentPositioning in rule_impls
@@ -90,17 +87,17 @@ function apply_positioning_rule!(glyph_offsets, rule, gpos::GlyphPositioning, i,
   elseif in(type, (POSITIONING_RULE_CURSIVE, POSITIONING_RULE_MARK_TO_BASE, POSITIONING_RULE_MARK_TO_LIGATURE, POSITIONING_RULE_MARK_TO_MARK)) && i > firstindex(glyphs)
     if type == POSITIONING_RULE_MARK_TO_LIGATURE
       for impl::MarkToLigatureRule in rule_impls
-        offset = apply_positioning_rule(glyphs[i - 1] => glyphs[i], impl, ligature_component::Int)
-        if !isnothing(offset)
-          glyph_offsets[i] += offset
+        ret = apply_positioning_rule(glyphs[i - 1] => glyphs[i], impl, ligature_component::Int)
+        if !isnothing(ret)
+          glyph_offsets[i] += align_anchors(glyph_offsets, i, ret)
           return i + 1
         end
       end
     else
       for impl::Union{CursivePositioningRule, MarkToBaseRule, MarkToMarkRule} in rule_impls
-        offset = apply_positioning_rule(glyphs[i - 1] => glyphs[i], impl)
-        if !isnothing(offset)
-          glyph_offsets[i] += offset
+        ret = apply_positioning_rule(glyphs[i - 1] => glyphs[i], impl)
+        if !isnothing(ret)
+          glyph_offsets[i] += align_anchors(glyph_offsets, i, ret)
           return i + 1
         end
       end
@@ -121,6 +118,23 @@ function apply_positioning_rule!(glyph_offsets, rule, gpos::GlyphPositioning, i,
   elseif type == POSITIONING_RULE_CONTEXTUAL_CHAINED
     # TODO
   end
+end
+
+function align_anchors(offsets::AbstractVector{GlyphOffset}, i::Int, (base, next)::Tuple{Point{2,Int16}, Point{2,Int16}})
+  base_origin = offsets[i - 1].origin
+  advance = offsets[i - 1].advance
+  next_origin = offsets[i].origin
+
+  # Anchors are expressed in the design space.
+  # We first compute the offset vector between these two points, then
+  # adjust it taking into consideration the current offset between
+  # the base and next glyphs. Once the current offset has been
+  # computed, all that is needed is to add the offsets together.
+  alignment_offset = next - base
+  position_offset = (next_origin + advance) - base_origin
+  offset = alignment_offset + position_offset
+  origin = -offset
+  GlyphOffset(origin, zero(Point{2,Int16}))
 end
 
 struct AdjustmentPositioning
@@ -178,7 +192,7 @@ function apply_positioning_rule((current, next)::Pair{GlyphID}, rule::CursivePos
   current_exit = rule.entry_exits[i].second
   next_entry = rule.entry_exits[j].first
   (isnothing(current_exit) || isnothing(next_entry)) && return nothing
-  next_entry - current_exit
+  current_exit, next_entry
 end
 
 struct MarkToBaseRule
@@ -196,7 +210,7 @@ function apply_positioning_rule((base, mark)::Pair{GlyphID}, rule::MarkToBaseRul
   mark_anchor = rule.mark_anchors[j]
   base_anchor = rule.base_anchor_indices[i][mark_anchor.class + 1]
   isnothing(base_anchor) && return nothing
-  GlyphOffset(mark_anchor.anchor - base_anchor, zero(Point{2,Int16}))
+  base_anchor, mark_anchor.anchor
 end
 
 struct MarkToLigatureRule
@@ -206,7 +220,7 @@ struct MarkToLigatureRule
   mark_anchors::Vector{MarkAnchor} # indexed by mark coverage index
 end
 
-function apply_positioning_rule((ligature, mark)::Pair{GlyphID}, rule::MarkToLigatureRule, ligature_component)
+function apply_positioning_rule((ligature, mark)::Pair{GlyphID}, rule::MarkToLigatureRule, ligature_component::Optional{Int})
   i = match(rule.ligature_coverage, ligature)
   isnothing(i) && return nothing
   j = match(rule.mark_coverage, mark)
@@ -214,7 +228,7 @@ function apply_positioning_rule((ligature, mark)::Pair{GlyphID}, rule::MarkToLig
   mark_anchor = rule.mark_anchors[j]
   base_anchor = rule.base_anchor_indices[i][ligature_component][mark_anchor.class + 1]
   isnothing(base_anchor) && return nothing
-  GlyphOffset(mark_anchor.anchor - base_anchor, zero(Point{2,Int16}))
+  base_anchor, mark_anchor.anchor
 end
 
 struct MarkToMarkRule
@@ -232,7 +246,7 @@ function apply_positioning_rule((base_mark, mark)::Pair{GlyphID}, rule::MarkToMa
   mark_anchor = rule.mark_anchors[j]
   base_anchor = rule.base_mark_anchors[j][mark_anchor.class + 1]
   isnothing(base_anchor) && return nothing
-  GlyphOffset(mark_anchor.anchor - base_anchor, zero(Point{2,Int16}))
+  base_anchor, mark_anchor.anchor
 end
 
 # -----------------------------------

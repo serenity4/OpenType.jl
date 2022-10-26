@@ -38,7 +38,7 @@ include("char_to_glyph.jl")
 include("shaping.jl")
 include("text.jl")
 
-export GlyphID, GlyphOffset, OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, positioning_rules, @tag_str, @tag2_str, @tag3_str, @tag4_str, shape, ShapingOptions
+export GlyphID, GlyphOffset, OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, positioning_rules, @tag_str, @tag2_str, @tag3_str, @tag4_str, shape, ShapingOptions, Direction, DIRECTION_LEFT_TO_RIGHT, DIRECTION_RIGHT_TO_LEFT, DIRECTION_TOP_TO_BOTTOM, DIRECTION_BOTTOM_TO_TOP
 
 
 end

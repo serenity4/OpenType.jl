@@ -25,15 +25,18 @@ end
 
 const CEnum_T = Int16
 
-function hb_shape(font_file::AbstractString, text::AbstractString)
+hb_direction(direction::AbstractString) = @ccall libharfbuzz.hb_direction_from_string(direction::Cstring, (-1)::Int16)::CEnum_T
+hb_direction(direction::Direction) = hb_direction(direction == DIRECTION_LEFT_TO_RIGHT ? "LTR" : direction == DIRECTION_RIGHT_TO_LEFT ? "RTL" : direction == DIRECTION_TOP_TO_BOTTOM ? "TTB" : "BTT")
+
+function hb_shape(font_file::AbstractString, text::AbstractString, options::ShapingOptions)
   blob = @ccall libharfbuzz.hb_blob_create_from_file(font_file::Cstring)::Ptr{Nothing}
   face = @ccall libharfbuzz.hb_face_create(blob::Ptr{Nothing}, 0::UInt16)::Ptr{Nothing}
   font = @ccall libharfbuzz.hb_font_create(face::Ptr{Nothing})::Ptr{Nothing}
   buffer = @ccall libharfbuzz.hb_buffer_create()::Ptr{Nothing}
 
-  direction = @ccall libharfbuzz.hb_direction_from_string("LTR"::Cstring, (-1)::Int16)::CEnum_T
-  script = @ccall libharfbuzz.hb_script_from_string("Latn"::Cstring, (-1)::Int16)::UInt32
-  language = @ccall libharfbuzz.hb_language_from_string("fr-FR"::Cstring, (-1)::Int16)::UInt32
+  direction = hb_direction(options.direction)
+  script = @ccall libharfbuzz.hb_script_from_string(string(options.script)::Cstring, (-1)::Int16)::UInt32
+  language = @ccall libharfbuzz.hb_language_from_string(string(options.language)::Cstring, (-1)::Int16)::UInt32
 
   @ccall libharfbuzz.hb_buffer_add_utf8(buffer::Ptr{Nothing}, text::Cstring, (-1)::Int16, 0::UInt16, (-1)::Int16)::Ptr{Nothing}
   @ccall libharfbuzz.hb_buffer_set_direction(buffer::Ptr{Nothing}, direction::CEnum_T)::Ptr{Nothing}

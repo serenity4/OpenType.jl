@@ -124,3 +124,8 @@ render_glyph(font, glyph, 12)
 
 render_glyph(font, '€', 12)
 render_glyph(font, 'A', 12)
+
+# Lao characters.
+plot_outline(font['\ue99'])
+plot_outline(font['\ueb5'])
+plot_outline(font['\uec9'])
