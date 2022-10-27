@@ -302,7 +302,7 @@ Base.read(io::IO, ::Type{GPOSLookupSubtable{8}}) = read(io, GPOSChainedContextua
     lookup_flag::LookupFlag
     subtable_count::UInt16
     subtable_offsets::Vector{UInt16} => subtable_count
-    mark_filtering_set::UInt16
+    mark_filtering_set::Optional{UInt16} << (in(LOOKUP_USE_MARK_FILTERING_SET, lookup_flag) ? read(io, UInt16) : nothing)
 
     subtables::Vector{GPOSLookupSubtable} << [read_at(io, GPOSLookupSubtable{Int(lookup_type)}, offset; start = __origin__) for offset in subtable_offsets]
 end

@@ -12,7 +12,7 @@ end
 struct PositioningRule
   type::PositioningRuleType
   flag::LookupFlag
-  mark_filtering_set::UInt16
+  mark_filtering_set::Optional{UInt16}
   "Rule implementations. There can be several depending on storage efficiency."
   rule_impls::Vector{Any}
 end
