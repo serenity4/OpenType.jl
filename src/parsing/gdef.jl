@@ -43,7 +43,8 @@ function Base.read(io::IO, ::Type{CaretValueTable})
   format = peek(io, UInt16)
   format == 1 && return read(io, CaretValueTableFormat1)
   format == 2 && return read(io, CaretValueTableFormat2)
-  read(io, CaretValueTableFormat3)
+  format == 3 && return read(io, CaretValueTableFormat3)
+  error("Expected format to be one of 1, 2 or 3, got $(repr(format))")
 end
 
 @serializable struct LigatureGlyphTable
@@ -59,10 +60,12 @@ end
   lig_glyph_offsets::Vector{UInt16} => lig_glyph_count
 
   coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
-  lig_glyph_tables::Vector{LigatureGlyphTable} << [read_at(io, LigatureGlyphTable, offset; start = __origin__) for offset in attach_point_offsets]
+  lig_glyph_tables::Vector{LigatureGlyphTable} << [read_at(io, LigatureGlyphTable, offset; start = __origin__) for offset in lig_glyph_offsets]
 end
 
-@serializable struct GDEFHeader_1_0
+abstract type GlyphDefinitionTable end
+
+@serializable struct GDEFHeader_1_0 <: GlyphDefinitionTable
   major_version::UInt16
   minor_version::UInt16
   glyph_class_def_offset::UInt16
@@ -70,10 +73,10 @@ end
   lig_caret_list_offset::UInt16
   mark_attach_class_def_offset::UInt16
 
-  glyph_class_def_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, glyph_class_def_offset; start = __origin__)
-  attach_list_table::AttachmentPointListTable << read_at(io, AttachmentPointListTable, attach_list_offset; start = __origin__)
-  lig_caret_list_table::LigatureCaretListTable << read_at(io, LigatureCaretListTable, lig_caret_list_offset ; start = __origin__)
-  mark_attach_class_def_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, mark_attach_class_def_offset; start = __origin__)
+  glyph_class_def_table::Optional{ClassDefinitionTable} << (iszero(glyph_class_def_offset) ? nothing : read_at(io, ClassDefinitionTable, glyph_class_def_offset; start = __origin__))
+  attach_list_table::Optional{AttachmentPointListTable} << (iszero(attach_list_offset) ? nothing : read_at(io, AttachmentPointListTable, attach_list_offset; start = __origin__))
+  lig_caret_list_table::Optional{LigatureCaretListTable} << (iszero(lig_caret_list_offset) ? nothing : read_at(io, LigatureCaretListTable, lig_caret_list_offset; start = __origin__))
+  mark_attach_class_def_table::Optional{ClassDefinitionTable} << (iszero(mark_attach_class_def_offset) ? nothing : read_at(io, ClassDefinitionTable, mark_attach_class_def_offset; start = __origin__))
 end
 
 @serializable struct MarkGlyphSetsTable
@@ -84,16 +87,24 @@ end
   coverage_tables::Vector{CoverageTable} << [read_at(io, CoverageTable, offset; start = __origin__) for offset in coverage_offsets]
 end
 
-@serializable struct GDEFHeader_1_2
+@serializable struct GDEFHeader_1_2 <: GlyphDefinitionTable
   common::GDEFHeader_1_0
   mark_glyph_sets_def_offset::UInt16
 
-  mark_glyph_sets_def_table::MarkGlyphSetsTable << read_at(io, MarkGlyphSetsTable, mark_glyph_sets_def_offset; start = __origin__)
+  mark_glyph_sets_def_table::Optional{MarkGlyphSetsTable} << (iszero(mark_glyph_sets_def_offset) ? nothing : read_at(io, MarkGlyphSetsTable, mark_glyph_sets_def_offset; start = __origin__))
 end
 
-@serializable struct GDEFHeader_1_3
-  common::GDEFHeader_1_3
+@serializable struct GDEFHeader_1_3 <: GlyphDefinitionTable
+  common::GDEFHeader_1_2
   item_var_store_offset::UInt16
 
-  item_var_store_table::Any # TODO
+  item_var_store_table::Optional{Any} << nothing # TODO
+end
+
+function Base.read(io::IO, ::Type{GlyphDefinitionTable})
+  minor = read_at(io, UInt16, 2)
+  minor == 0 && return read(io, GDEFHeader_1_0)
+  minor == 2 && return read(io, GDEFHeader_1_2)
+  minor == 3 && return read(io, GDEFHeader_1_3)
+  nothing
 end

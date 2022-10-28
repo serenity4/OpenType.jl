@@ -30,6 +30,7 @@ struct OpenTypeData
 
     # Advanced typographic tables.
     gpos::Optional{GlyphPositioningTable}
+    gdef::Optional{GlyphDefinitionTable}
 end
 
 Base.broadcastable(data::OpenTypeData) = Ref(data)
@@ -89,8 +90,9 @@ function Base.read(io::Union{SwapStream,TracedIO{<:SwapStream}}, ::Type{OpenType
 
     # Advanced typographic tables.
     gpos = read_table(Base.Fix2(read, GlyphPositioningTable), io, nav, tag"GPOS")
+    gdef = read_table(Base.Fix2(read, GlyphDefinitionTable), io, nav, tag"GDEF")
 
-    OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gpos)
+    OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gpos, gdef)
 end
 
 function OpenTypeData(file::AbstractString; verify_checksums::Bool = true, debug::Bool = false)
