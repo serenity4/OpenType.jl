@@ -41,12 +41,12 @@ end
 
 @testset "Google Fonts" begin
   success, failed, loaded = load_google_fonts(identity, google_font_files; progress = false)
-  @test success ≥ 3011
-  success, failed, loaded = load_google_fonts(OpenTypeFont, google_font_files; progress = false, filter = x -> !isnothing(x.gpos))
-  @test success ≥ 2643
+  @test success ≥ 3111
+  success, failed, loaded = load_google_fonts(OpenTypeFont, google_font_files; progress = false)
+  @test success ≥ 3108
 end
 
 # Uncomment to troubleshoot errors and increase coverage.
 # load_google_fonts(identity, google_font_files; throw = true)
 # load_google_fonts(identity, google_font_files; throw = false)
-# success, failed, loaded = load_google_fonts(OpenTypeFont, google_font_files; progress = true, throw = false, start = 1, filter = x -> !isnothing(x.gpos))
+# success, failed, loaded = load_google_fonts(OpenTypeFont, google_font_files; progress = true, throw = false, start = 1)

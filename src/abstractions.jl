@@ -134,8 +134,8 @@ end
 
 struct ChainedContextualRule
   coverage::Optional{Coverage}
-  glyph_sequences::Optional{Vector{ChainedSequenceEntry}}
-  class_sequences::Optional{Vector{ChainedSequenceEntry}}
+  glyph_sequences::Optional{Vector{Optional{ChainedSequenceEntry}}}
+  class_sequences::Optional{Vector{Optional{ChainedSequenceEntry}}}
   class_definitions::Optional{NTuple{3, ClassDefinition}} # backtrack, input and lookahead classes
   coverage_sequences::Optional{NTuple{3, Vector{Coverage}}} # backtrack, input and lookahead coverages
   coverage_rules::Optional{Vector{Pair{UInt16,UInt16}}} # sequence index => rule index
@@ -215,6 +215,7 @@ RangeClass(record::ClassRangeRecord) = RangeClass(record.start_glyph_id:record.e
 sequence_rule(record::SequenceLookupRecord) = record.sequence_index => record.lookup_list_index
 SequenceEntry(table::SequenceRuleTable) = SequenceEntry(table.input_sequence, sequence_rule.(table.seq_lookup_records))
 sequence_entries(table::SequenceRuleSetTable) = SequenceEntry.(table.seq_rule_tables)
+sequence_entries(::Nothing) = nothing
 
 ContextualRule(table::SequenceContextTableFormat1) = ContextualRule(Coverage(table.coverage_table), sequence_entries.(table.seq_rule_set_tables), nothing, nothing, nothing, nothing)
 ContextualRule(table::SequenceContextTableFormat2) = ContextualRule(Coverage(table.coverage_table), nothing, sequence_entries.(table.class_seq_rule_set_tables), ClassDefinition(table.class_def_table), nothing, nothing)
@@ -223,9 +224,10 @@ ContextualRule(table::SequenceContextTableFormat3) = ContextualRule(nothing, not
 ChainMatch(table::ChainedSequenceRuleTable) = ChainMatch(table.backtrack_sequence, table.input_sequence, table.lookahead_sequence, sequence_rule.(table.seq_lookup_records))
 ChainedSequenceEntry(table::ChainedSequenceRuleSetTable) = ChainedSequenceEntry(ChainMatch.(table.chained_seq_rule_tables))
 coverage_tables(tables) = Coverage.(tables)
+chained_sequence_entry(table) = isnothing(table) ? nothing : ChainedSequenceEntry(table)
 
-ChainedContextualRule(table::ChainedSequenceContextFormat1) = ChainedContextualRule(Coverage(table.coverage_table), ChainedSequenceEntry.(table.chained_seq_rule_set_tables), nothing, nothing, nothing, nothing)
-ChainedContextualRule(table::ChainedSequenceContextFormat2) = ChainedContextualRule(Coverage(table.coverage_table), nothing, ChainedSequenceEntry.(table.chained_class_seq_rule_set_tables), ClassDefinition.((table.backtrack_class_def_table, table.input_class_def_table, table.lookahead_class_def_table)), nothing, nothing)
+ChainedContextualRule(table::ChainedSequenceContextFormat1) = ChainedContextualRule(Coverage(table.coverage_table), chained_sequence_entry.(table.chained_seq_rule_set_tables), nothing, nothing, nothing, nothing)
+ChainedContextualRule(table::ChainedSequenceContextFormat2) = ChainedContextualRule(Coverage(table.coverage_table), nothing, chained_sequence_entry.(table.chained_class_seq_rule_set_tables), ClassDefinition.((table.backtrack_class_def_table, table.input_class_def_table, table.lookahead_class_def_table)), nothing, nothing)
 ChainedContextualRule(table::ChainedSequenceContextFormat3) = ChainedContextualRule(nothing, nothing, nothing, nothing, coverage_tables.((table.backtrack_coverage_tables, table.input_coverage_tables, table.lookahead_coverage_tables)), sequence_rule.(table.seq_lookup_records))
 
 GlyphDefinition(gdef::GDEFHeader_1_0) = GlyphDefinition(isnothing(gdef.glyph_class_def_table) ? nothing : ClassDefinition(gdef.glyph_class_def_table))

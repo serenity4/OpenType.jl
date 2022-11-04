@@ -96,7 +96,7 @@ abstract type ChainedSequenceContextTable end
     chained_seq_rule_set_offsets::Vector{UInt16} => chained_seq_rule_set_count
 
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
-    chained_seq_rule_set_tables::Vector{ChainedSequenceRuleSetTable} << [read_at(io, ChainedSequenceRuleSetTable, offset; start = __origin__) for offset in chained_seq_rule_set_offsets]
+    chained_seq_rule_set_tables::Vector{Optional{ChainedSequenceRuleSetTable}} << [iszero(offset) ? nothing : read_at(io, ChainedSequenceRuleSetTable, offset; start = __origin__) for offset in chained_seq_rule_set_offsets]
 end
 
 @serializable struct ChainedSequenceContextFormat2 <: ChainedSequenceContextTable
@@ -113,7 +113,7 @@ end
     input_class_def_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, input_class_def_offset; start = __origin__)
     lookahead_class_def_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, lookahead_class_def_offset; start = __origin__)
     # To be exact, the element type is `ChainedClassSequenceRuleSetTable`, but this type is structurally identical to `ChainedSequenceRuleSetTable`.
-    chained_class_seq_rule_set_tables::Vector{ChainedSequenceRuleSetTable} << [read_at(io, ChainedSequenceRuleSetTable, offset; start = __origin__) for offset in chained_class_seq_rule_set_offsets]
+    chained_class_seq_rule_set_tables::Vector{Optional{ChainedSequenceRuleSetTable}} << [iszero(offset) ? nothing : read_at(io, ChainedSequenceRuleSetTable, offset; start = __origin__) for offset in chained_class_seq_rule_set_offsets]
 end
 
 @serializable struct ChainedSequenceContextFormat3 <: ChainedSequenceContextTable

@@ -90,7 +90,9 @@ function serializable(ex, source::LineNumberNode)
     fdecl = :(Base.read(io::IO, ::Type{$t}))
     for ex in argmeta
         if isexpr(ex, :macrocall) && ex.args[1] == Symbol("@arg")
-            push!(fdecl.args, last(ex.args))
+            argex = last(ex.args)
+            Meta.isexpr(argex, :(=)) && (argex.head = :kw)
+            push!(fdecl.args, argex)
         end
     end
     read_f = Expr(:function, fdecl, body)

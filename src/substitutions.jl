@@ -175,7 +175,6 @@ LigatureSubstitution(table::GSUBLookupLigatureTable) = LigatureSubstitution(Cove
 
 function SubstitutionRule(table::GSUBLookupTable)
   (; lookup_type, subtables) = table
-  lookup_type == 7 && return SubstitutionRule(table.table.extension_table)
   rule_impls = if lookup_type == 1
     Any[SingleSubstitution(table) for table::Union{SingleTableFormat1, SingleTableFormat2} in subtables]
   elseif lookup_type == 2
@@ -202,10 +201,11 @@ function substitution_rules(table::GlyphSubstitutionTable)
   rules = SubstitutionRule[]
   for lookup_table::GSUBLookupTable in table.lookup_list_table.lookup_tables
     if lookup_table.lookup_type == 7
-      append!(rules, SubstitutionRule(subtable.extension_table) for subtable in lookup_table.subtables)
-    else
-      push!(rules, SubstitutionRule(lookup_table))
+      (; subtables) = lookup_table
+      (; extension_lookup_type) = subtables[1]
+      lookup_table = setproperties(lookup_table, (; lookup_type = extension_lookup_type, subtables = [table.extension_table for table in subtables]))
     end
+    push!(rules, SubstitutionRule(lookup_table))
   end
   rules
 end

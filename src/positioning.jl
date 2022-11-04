@@ -288,7 +288,6 @@ end
 
 function PositioningRule(table::GPOSLookupTable)
   (; lookup_type, subtables) = table
-  lookup_type == 9 && return PositioningRule(table.table.extension_table)
   rule_impls = if lookup_type == 1
     Any[AdjustmentPositioning(table) for table::Union{SingleAdjustmentTableFormat1, SingleAdjustmentTableFormat2} in subtables]
   elseif lookup_type == 2
@@ -315,10 +314,11 @@ function positioning_rules(table::GlyphPositioningTable)
   rules = PositioningRule[]
   for lookup_table::GPOSLookupTable in table.lookup_list_table.lookup_tables
     if lookup_table.lookup_type == 9
-      append!(rules, PositioningRule(subtable.extension_table) for subtable in lookup_table.subtables)
-    else
-      push!(rules, PositioningRule(lookup_table))
+      (; subtables) = lookup_table
+      (; extension_lookup_type) = subtables[1]
+      lookup_table = setproperties(lookup_table, (; lookup_type = extension_lookup_type, subtables = [table.extension_table for table in subtables]))
     end
+    push!(rules, PositioningRule(lookup_table))
   end
   rules
 end

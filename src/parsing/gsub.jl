@@ -127,9 +127,9 @@ end
 @serializable struct GSUBExtensionTable <: GSUBLookupSubtable{7}
     pos_format::UInt16
     extension_lookup_type::UInt16
-    extension_offset::UInt16
+    extension_offset::UInt32
 
-    extension_table::GSUBLookupTable << read_at(io, GSUBLookupTable, extension_offset; start = __origin__)
+    extension_table::GSUBLookupSubtable << read_at(io, GSUBLookupSubtable{Int(extension_lookup_type)}, extension_offset; start = __origin__)
 end
 
 Base.read(io::IO, ::Type{GSUBLookupSubtable{7}}) = read(io, GSUBExtensionTable)

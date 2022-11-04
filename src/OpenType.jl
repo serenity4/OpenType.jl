@@ -4,7 +4,7 @@ using Dates
 using SwapStreams
 using GeometryExperiments
 using ColorTypes: RGBA
-using Accessors: @set
+using Accessors: @set, setproperties
 using .Meta: isexpr
 using BitMasks
 
