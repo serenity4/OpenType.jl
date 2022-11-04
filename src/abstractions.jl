@@ -116,7 +116,7 @@ function contextual_match(f, i, glyphs, rule::ContextualRule)
     end
   else
     coverage_sequences::Vector{Coverage}
-    all(contains(coverage_sequences[k], glyphs[i + (k - 1)]) for k in eachindex(coverage_sequences)) && return coverage_rules::Vector{Pair{UInt16,UInt16}}
+    all(contains(coverage_sequences[k], glyphs[i + (k - 1)]) for k in eachindex(coverage_sequences)) && return f(coverage_rules::Vector{Pair{UInt16,UInt16}})
   end
   nothing
 end
@@ -140,6 +140,34 @@ struct ChainedContextualRule
   coverage_sequences::Optional{NTuple{3, Vector{Coverage}}} # backtrack, input and lookahead coverages
   coverage_rules::Optional{Vector{Pair{UInt16,UInt16}}} # sequence index => rule index
 end
+
+"Common supertype for GPOS and GSUB abstractions, which share a script- and language-based selection of features to apply."
+abstract type LookupFeatureSet end
+
+function applicable_features(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}})
+  language = LanguageSystem(script_tag, language_tag, fset.scripts)
+  features = fset.features[language.feature_indices .+ 1]
+  filter!(x -> !in(x.tag, disabled_features), features)
+  language.required_feature_index ≠ typemax(UInt16) && pushfirst!(features, fset.features[language.required_feature_index + 1])
+  features
+end
+
+function applicable_rules(fset::LookupFeatureSet, features::Vector{Feature})
+  indices = sort!(foldl((x, y) -> vcat(x, y.lookup_indices), features; init = UInt16[]))
+  @view fset.rules[indices .+ 1]
+end
+
+applicable_rules(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = applicable_rules(fset::LookupFeatureSet, applicable_features(fset, script_tag, language_tag, disabled_features))
+
+struct FeatureRule{T}
+  type::T
+  flag::LookupFlag
+  mark_filtering_set::Optional{UInt16}
+  "Rule implementations. There can be several depending on storage efficiency."
+  rule_impls::Vector{Any}
+end
+
+Base.show(io::IO, rule::FeatureRule) = print(io, typeof(rule), '(', rule.type, ", ", rule.flag, ", ", length(rule.rule_impls), " implementations)")
 
 # -----------------------------------
 # Conversions from serializable types

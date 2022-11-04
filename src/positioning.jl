@@ -9,36 +9,13 @@
   POSITIONING_RULE_CONTEXTUAL_CHAINED = 8
 end
 
-struct PositioningRule
-  type::PositioningRuleType
-  flag::LookupFlag
-  mark_filtering_set::Optional{UInt16}
-  "Rule implementations. There can be several depending on storage efficiency."
-  rule_impls::Vector{Any}
-end
+const PositioningRule = FeatureRule{PositioningRuleType}
 
-Base.show(io::IO, rule::PositioningRule) = print(io, PositioningRule, '(', rule.type, ", ", rule.flag, ", ", length(rule.rule_impls), " implementations)")
-
-struct GlyphPositioning
+struct GlyphPositioning <: LookupFeatureSet
   scripts::Dict{Tag{4},Script}
   features::Vector{Feature}
   rules::Vector{PositioningRule}
 end
-
-function positioning_features(gpos::GlyphPositioning, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}})
-  language = LanguageSystem(script_tag, language_tag, gpos.scripts)
-  features = gpos.features[language.feature_indices .+ 1]
-  filter!(x -> !in(x.tag, disabled_features), features)
-  language.required_feature_index ≠ typemax(UInt16) && pushfirst!(features, gpos.features[language.required_feature_index + 1])
-  features
-end
-
-function positioning_rules(gpos::GlyphPositioning, features::Vector{Feature})
-  indices = sort!(foldl((x, y) -> vcat(x, y.lookup_indices), features; init = UInt16[]))
-  @view gpos.rules[indices .+ 1]
-end
-
-positioning_rules(gpos::GlyphPositioning, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = positioning_rules(gpos, positioning_features(gpos, script_tag, language_tag, disabled_features))
 
 struct GlyphOffset
   "Offset to the origin of the glyph."
@@ -52,10 +29,10 @@ Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", of
 Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
 Base.:(+)(x::GlyphOffset, y::GlyphOffset) = GlyphOffset(x.origin + y.origin, x.advance + y.advance)
 
-apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = apply_positioning_rules!(glyph_offsets, gpos, glyphs, positioning_features(gpos, script_tag, language_tag, disabled_features))
+apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = apply_positioning_rules!(glyph_offsets, gpos, glyphs, applicable_features(gpos, script_tag, language_tag, disabled_features))
 
 function apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})
-  for rule in positioning_rules(gpos, features)
+  for rule in applicable_rules(gpos, features)
     i = firstindex(glyphs)
     while i ≤ lastindex(glyphs)
       next = apply_positioning_rule!(glyph_offsets, rule, gpos, i, glyphs, nothing)

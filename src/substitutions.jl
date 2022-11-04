@@ -1,3 +1,26 @@
+@enum SubstitutionRuleType::UInt8 begin
+  SUBSTITUTION_RULE_SINGLE = 1
+  SUBSTITUTION_RULE_MULTIPLE = 2
+  SUBSTITUTION_RULE_ALTERNATE = 3
+  SUBSTITUTION_RULE_LIGATURE = 4
+  SUBSTITUTION_RULE_CONTEXTUAL = 5
+  SUBSTITUTION_RULE_CONTEXTUAL_CHAINED = 6
+  SUBSTITUTION_RULE_REVERSE_CONTEXTUAL_CHAINED_SINGLE = 7
+end
+
+const SubstitutionRule = FeatureRule{PositioningRuleType}
+
+struct GlyphSubtitution <: LookupFeatureSet
+  scripts::Dict{Tag{4},Script}
+  features::Vector{Feature}
+  rules::Vector{SubstitutionRule}
+end
+
+apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubtitution, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = apply_positioning_rules!(glyphs, gsub, applicable_features(gsub, script_tag, language_tag, disabled_features))
+
+function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::SubstitutionRule, gsub::GlyphSubtitution, i::Int, ligature_component::Optional{Int})
+end
+
 struct SingleSubstitution
   coverage::Coverage
   substitution::Union{GlyphID, Vector{GlyphID}}
