@@ -33,7 +33,7 @@ abstract type SequenceContextTable end
     format::UInt16
     coverage_offset::UInt16
     seq_rule_set_count::UInt16
-    seq_rule_set_offsets::UInt16
+    seq_rule_set_offsets::Vector{UInt16} => seq_rule_set_count
 
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
     seq_rule_set_tables::Vector{Optional{SequenceRuleSetTable}} << [iszero(offset) ? nothing : read_at(io, SequenceRuleSetTable, offset; start = __origin__) for offset in seq_rule_set_offsets]
@@ -48,7 +48,7 @@ end
 
     coverage_table::CoverageTable << read_at(io, CoverageTable, coverage_offset; start = __origin__)
     class_def_table::ClassDefinitionTable << read_at(io, ClassDefinitionTable, class_def_offset; start = __origin__)
-    class_seq_rule_set_tables::Vector{Optional{SequenceRuleSetTable}} << [iszero(offset) ? nothing : read_at(io, SequenceRuleSetTable, offset; start = __origin__) for offset in seq_rule_set_offsets]
+    class_seq_rule_set_tables::Vector{Optional{SequenceRuleSetTable}} << [iszero(offset) ? nothing : read_at(io, SequenceRuleSetTable, offset; start = __origin__) for offset in class_seq_rule_set_offsets]
 end
 
 @serializable struct SequenceContextTableFormat3 <: SequenceContextTable

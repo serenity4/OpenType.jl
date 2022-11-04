@@ -29,20 +29,20 @@ Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", of
 Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
 Base.:(+)(x::GlyphOffset, y::GlyphOffset) = GlyphOffset(x.origin + y.origin, x.advance + y.advance)
 
-apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = apply_positioning_rules!(glyph_offsets, gpos, glyphs, applicable_features(gpos, script_tag, language_tag, disabled_features))
+apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = apply_positioning_rules!(glyph_offsets, gpos, gdef, glyphs, applicable_features(gpos, script_tag, language_tag, disabled_features))
 
-function apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})
+function apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})
   for rule in applicable_rules(gpos, features)
     i = firstindex(glyphs)
     while i ≤ lastindex(glyphs)
-      next = apply_positioning_rule!(glyph_offsets, rule, gpos, i, glyphs, nothing)
+      next = apply_positioning_rule!(glyph_offsets, rule, gpos, gdef, i, glyphs, nothing)
       i = something(next, i + 1)
     end
   end
   glyph_offsets
 end
 
-function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rule::PositioningRule, gpos::GlyphPositioning, i::Int, glyphs::AbstractVector{GlyphID}, ligature_component::Optional{Int})
+function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rule::PositioningRule, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, i::Int, glyphs::AbstractVector{GlyphID}, ligature_component::Optional{Int})
   (; type, rule_impls) = rule
   if type == POSITIONING_RULE_ADJUSTMENT
     for impl::AdjustmentPositioning in rule_impls
@@ -86,7 +86,7 @@ function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rul
         for (seq_index, lookup_index) in rules
           j = i + (seq_index - 1)
           jmax = max(jmax, j)
-          apply_positioning_rule!(glyph_offsets, gpos.rules[lookup_index], j, glyphs, ligature_component)
+          apply_positioning_rule!(glyph_offsets, gpos.rules[lookup_index], gpos, gdef, j, glyphs, ligature_component)
         end
         jmax
       end
@@ -315,7 +315,7 @@ function positioning_rules(table::GlyphPositioningTable)
   rules = PositioningRule[]
   for lookup_table::GPOSLookupTable in table.lookup_list_table.lookup_tables
     if lookup_table.lookup_type == 9
-      append!(rules, (PositioningRule(subtable.extension_table) for subtable in lookup_table.subtables))
+      append!(rules, PositioningRule(subtable.extension_table) for subtable in lookup_table.subtables)
     else
       push!(rules, PositioningRule(lookup_table))
     end

@@ -15,7 +15,7 @@ struct Script
   default_language::Optional{LanguageSystem}
 end
 
-function LanguageSystem(script_tag::Tag{4}, language_tag::Tag{4}, scripts::Dict{Tag{4},Script})
+function language_system(script_tag::Tag{4}, language_tag::Tag{4}, scripts::Dict{Tag{4},Script})
   script = get(scripts, script_tag, nothing)
   isnothing(script) && error("Script '$script_tag' not found.")
   language_idx = findfirst(x -> x.tag == language_tag, script.languages)
@@ -25,7 +25,7 @@ function LanguageSystem(script_tag::Tag{4}, language_tag::Tag{4}, scripts::Dict{
       language_idx = findfirst(x -> x.tag == tag"DFLT", script.languages)
       !isnothing(language_idx) && return script.languages[language_idx]
   end
-  error("No matching language entry found for the language '$language_tag)'")
+  nothing
 end
 
 """
@@ -145,7 +145,8 @@ end
 abstract type LookupFeatureSet end
 
 function applicable_features(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}})
-  language = LanguageSystem(script_tag, language_tag, fset.scripts)
+  language = language_system(script_tag, language_tag, fset.scripts)
+  isnothing(language) && return Feature[]
   features = fset.features[language.feature_indices .+ 1]
   filter!(x -> !in(x.tag, disabled_features), features)
   language.required_feature_index ≠ typemax(UInt16) && pushfirst!(features, fset.features[language.required_feature_index + 1])
@@ -168,6 +169,20 @@ struct FeatureRule{T}
 end
 
 Base.show(io::IO, rule::FeatureRule) = print(io, typeof(rule), '(', rule.type, ", ", rule.flag, ", ", length(rule.rule_impls), " implementations)")
+
+struct GlyphDefinition
+  classes::Optional{ClassDefinition}
+  # TODO: Add other fields as needed.
+end
+
+function should_skip(rule::FeatureRule, glyph::GlyphID, gdef::GlyphDefinition)
+  isnothing(gdef.classes) && return false
+  c = GlyphClassDef(class(glyph, gdef.classes) + 1)
+  in(LOOKUP_IGNORE_BASE_GLYPHS, rule.flag) && c == GLYPH_CLASS_BASE && return true
+  in(LOOKUP_IGNORE_LIGATURES, rule.flag) && c == GLYPH_CLASS_LIGATURE && return true
+  in(LOOKUP_IGNORE_MARKS, rule.flag) && c == GLYPH_CLASS_MARK && return true
+  false
+end
 
 # -----------------------------------
 # Conversions from serializable types
@@ -202,7 +217,7 @@ SequenceEntry(table::SequenceRuleTable) = SequenceEntry(table.input_sequence, se
 sequence_entries(table::SequenceRuleSetTable) = SequenceEntry.(table.seq_rule_tables)
 
 ContextualRule(table::SequenceContextTableFormat1) = ContextualRule(Coverage(table.coverage_table), sequence_entries.(table.seq_rule_set_tables), nothing, nothing, nothing, nothing)
-ContextualRule(table::SequenceContextTableFormat2) = ContextualRule(Coverage(table.coverage_table), nothing, sequence_entries.(table.seq_rule_set_tables), ClassDefinition(table.class_def_table), nothing, nothing)
+ContextualRule(table::SequenceContextTableFormat2) = ContextualRule(Coverage(table.coverage_table), nothing, sequence_entries.(table.class_seq_rule_set_tables), ClassDefinition(table.class_def_table), nothing, nothing)
 ContextualRule(table::SequenceContextTableFormat3) = ContextualRule(nothing, nothing, nothing, nothing, Coverage.(table.coverage_tables), sequence_rule.(table.seq_lookup_records))
 
 ChainMatch(table::ChainedSequenceRuleTable) = ChainMatch(table.backtrack_sequence, table.input_sequence, table.lookahead_sequence, sequence_rule.(table.seq_lookup_records))
@@ -212,3 +227,7 @@ coverage_tables(tables) = Coverage.(tables)
 ChainedContextualRule(table::ChainedSequenceContextFormat1) = ChainedContextualRule(Coverage(table.coverage_table), ChainedSequenceEntry.(table.chained_seq_rule_set_tables), nothing, nothing, nothing, nothing)
 ChainedContextualRule(table::ChainedSequenceContextFormat2) = ChainedContextualRule(Coverage(table.coverage_table), nothing, ChainedSequenceEntry.(table.chained_class_seq_rule_set_tables), ClassDefinition.((table.backtrack_class_def_table, table.input_class_def_table, table.lookahead_class_def_table)), nothing, nothing)
 ChainedContextualRule(table::ChainedSequenceContextFormat3) = ChainedContextualRule(nothing, nothing, nothing, nothing, coverage_tables.((table.backtrack_coverage_tables, table.input_coverage_tables, table.lookahead_coverage_tables)), sequence_rule.(table.seq_lookup_records))
+
+GlyphDefinition(gdef::GDEFHeader_1_0) = GlyphDefinition(isnothing(gdef.glyph_class_def_table) ? nothing : ClassDefinition(gdef.glyph_class_def_table))
+GlyphDefinition(gdef::GDEFHeader_1_2) = GlyphDefinition(isnothing(gdef.common.glyph_class_def_table) ? nothing : ClassDefinition(gdef.common.glyph_class_def_table))
+GlyphDefinition(gdef::GDEFHeader_1_3) = GlyphDefinition(isnothing(gdef.common.common.glyph_class_def_table) ? nothing : ClassDefinition(gdef.common.common.glyph_class_def_table))

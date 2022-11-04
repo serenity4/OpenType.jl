@@ -57,9 +57,9 @@ shape(font::OpenTypeFont, text::AbstractString, options::ShapingOptions) = shape
 
 function shape(font::OpenTypeFont, chars::AbstractVector{Char}, options::ShapingOptions)
   glyph_ids = glyph_index.(font, chars)
-  # TODO: Perform glyph substitutions.
+  apply_substitution_rules!(glyph_ids, font.gsub, font.gdef, options.script, options.language, options.disabled_features)
   offsets = zeros(GlyphOffset, length(glyph_ids))
   compute_advances!(offsets, font, glyph_ids, options.direction)
-  apply_positioning_rules!(offsets, font.gpos, glyph_ids, options.script, options.language, options.disabled_features)
+  apply_positioning_rules!(offsets, font.gpos, font.gdef, glyph_ids, options.script, options.language, options.disabled_features)
   glyph_ids, offsets
 end

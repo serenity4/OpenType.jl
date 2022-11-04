@@ -1,5 +1,4 @@
-using OpenType
-using Test
+using OpenType, Test
 
 include("utils.jl")
 include("libharfbuzz.jl")

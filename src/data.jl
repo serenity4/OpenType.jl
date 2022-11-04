@@ -29,6 +29,7 @@ struct OpenTypeData
     fvar::Optional{FontVariationsTable}
 
     # Advanced typographic tables.
+    gsub::Optional{GlyphSubstitutionTable}
     gpos::Optional{GlyphPositioningTable}
     gdef::Optional{GlyphDefinitionTable}
 end
@@ -89,10 +90,11 @@ function Base.read(io::Union{SwapStream,TracedIO{<:SwapStream}}, ::Type{OpenType
     fvar = read_table(Base.Fix2(read, FontVariationsTable), io, nav, tag"fvar")
 
     # Advanced typographic tables.
+    gsub = read_table(Base.Fix2(read, GlyphSubstitutionTable), io, nav, tag"GSUB")
     gpos = read_table(Base.Fix2(read, GlyphPositioningTable), io, nav, tag"GPOS")
     gdef = read_table(Base.Fix2(read, GlyphDefinitionTable), io, nav, tag"GDEF")
 
-    OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gpos, gdef)
+    OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gsub, gpos, gdef)
 end
 
 function OpenTypeData(file::AbstractString; verify_checksums::Bool = true, debug::Bool = false)

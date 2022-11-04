@@ -8,22 +8,91 @@
   SUBSTITUTION_RULE_REVERSE_CONTEXTUAL_CHAINED_SINGLE = 7
 end
 
-const SubstitutionRule = FeatureRule{PositioningRuleType}
+const SubstitutionRule = FeatureRule{SubstitutionRuleType}
 
-struct GlyphSubtitution <: LookupFeatureSet
+struct GlyphSubstitution <: LookupFeatureSet
   scripts::Dict{Tag{4},Script}
   features::Vector{Feature}
   rules::Vector{SubstitutionRule}
 end
 
-apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubtitution, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = apply_positioning_rules!(glyphs, gsub, applicable_features(gsub, script_tag, language_tag, disabled_features))
+apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = apply_substitution_rules!(glyphs, gsub, gdef, applicable_features(gsub, script_tag, language_tag, disabled_features))
 
-function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::SubstitutionRule, gsub::GlyphSubtitution, i::Int, ligature_component::Optional{Int})
+function apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, features::Vector{Feature}, choose_alternate::Function = (glyph, subs) -> glyph)
+  for rule in applicable_rules(gsub, features)
+    i = firstindex(glyphs)
+    while i ≤ lastindex(glyphs)
+      next = apply_substitution_rule!(glyphs, rule, gsub, gdef, i, choose_alternate)
+      i = something(next, i + 1)
+    end
+  end
+  glyphs
+end
+
+function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::SubstitutionRule, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, i::Int, choose_alternate::Function)
+  !isnothing(gdef) && !should_skip(rule, glyphs[i], gdef) && return nothing
+  (; type, rule_impls) = rule
+  if type == SUBSTITUTION_RULE_SINGLE
+    for impl::SingleSubstitution in rule_impls
+      sub = apply_substitution_rule(glyphs[i], impl)
+      if !isnothing(sub)
+        glyphs[i] = @show sub
+        return i + 1
+      end
+    end
+  elseif type == SUBSTITUTION_RULE_MULTIPLE
+    for impl::MultipleSubtitution in rule_impls
+      subs = apply_substitution_rule(glyphs[i], impl)
+      if !isnothing(subs)
+        sub, subs... = subs
+        glyphs[i] = sub
+        for sub in subs
+          insert!(glyphs, i + 1, sub)
+        end
+        return i + 1 + length(subs)
+      end
+    end
+  elseif type == SUBSTITUTION_RULE_ALTERNATE
+    for impl::AlternateSubtitution in rule_impls
+      alts = alternatives(glyphs[i], impl)
+      if !isnothing(alts)
+        glyphs[i] = @show choose_alternate(glyphs[i], alts)
+        return i + 1
+      end
+    end
+  elseif type == SUBSTITUTION_RULE_LIGATURE && i < lastindex(glyphs)
+    for impl::LigatureSubstitution in rule_impls
+      ret = apply_substitution_rule(glyphs, i, impl)
+      if !isnothing(ret)
+        n, sub = ret
+        glyphs[i] = sub
+        splice!(glyphs, (i + 1):(i + n - 1))
+        return i + n
+      end
+    end
+  elseif type == SUBSTITUTION_RULE_CONTEXTUAL
+    for impl::ContextualRule in rule_impls
+      last_matched = contextual_match(i, glyphs, impl) do rules
+        jmax = 0
+        for (seq_index, lookup_index) in rules
+          j = i + (seq_index - 1)
+          jmax = max(jmax, j)
+          apply_substitution_rule!(glyphs, gsub.rules[lookup_index], gsub, gdef, j)
+        end
+        jmax
+      end
+      !isnothing(last_matched) && return last_matched + 1
+    end
+  elseif type == SUBSTITUTION_RULE_CONTEXTUAL_CHAINED
+    # TODO
+  elseif type == SUBSTITUTION_RULE_REVERSE_CONTEXTUAL_CHAINED_SINGLE
+    # TODO
+  end
 end
 
 struct SingleSubstitution
   coverage::Coverage
-  substitution::Union{GlyphID, Vector{GlyphID}}
+  substitution::Union{GlyphIDOffset, Vector{GlyphID}}
 end
 
 struct MultipleSubtitution
@@ -43,14 +112,14 @@ struct LigatureEntry
   substitution::GlyphID
 end
 
-struct LigatureSubtitution
+struct LigatureSubstitution
   coverage::Coverage
-  ligatures::Vector{LigatureEntry}
+  ligatures::Vector{Vector{LigatureEntry}} # first array indexed by coverage index
 end
 
 function apply_substitution_rule(glyph::GlyphID, pattern::SingleSubstitution)
   i = match(pattern.coverage, glyph)
-  !isnothing(i) && return isa(pattern.substitution, GlyphID) ? pattern.substitution : pattern.substitution[i]
+  !isnothing(i) && return isa(pattern.substitution, GlyphID) ? glyph + pattern.substitution : pattern.substitution[i]
   nothing
 end
 
@@ -66,11 +135,11 @@ function alternatives(glyph::GlyphID, pattern::AlternateSubtitution)
   nothing
 end
 
-function apply_substitution_rule(glyphs::Vector{GlyphID}, pattern::LigatureSubtitution)
-  head, tail... = glyphs
-  i = match(pattern.coverage, head)
-  !isnothing(i) && for ligature in pattern.ligatures[i]
-      ligature.tail_match == tail && return ligature.substitution
+function apply_substitution_rule(glyphs::Vector{GlyphID}, i::Integer, pattern::LigatureSubstitution)
+  j = match(pattern.coverage, glyphs[i])
+  !isnothing(j) && for ligature in pattern.ligatures[j]
+      n = length(ligature.tail_match)
+      ligature.tail_match == (@view glyphs[(i + 1):n]) && return (n + 1, ligature.substitution)
     end
   nothing
 end
@@ -91,4 +160,58 @@ function apply_substitution_rule(glyphs::Vector{GlyphID}, pattern::ContextualRul
     end
     res
   end
+end
+
+# -----------------------------------
+# Conversions from serializable types
+
+SingleSubstitution(table::SingleTableFormat1) = SingleSubstitution(Coverage(table.coverage_table), table.delta_glyph_id)
+SingleSubstitution(table::SingleTableFormat2) = SingleSubstitution(Coverage(table.coverage_table), table.substitute_glyph_ids)
+MultipleSubtitution(table::GSUBLookupMultipleTable) = MultipleSubtitution(Coverage(table.coverage_table), [seq.substitute_glyph_ids for seq in table.sequence_tables])
+AlternateSubtitution(table::GSUBLookupAlternateTable) = AlternateSubtitution(Coverage(table.coverage_table), [set.alternate_glyph_ids for set in table.alternate_set_tables])
+
+LigatureEntry(table::LigatureTable) = LigatureEntry(table.component_glyph_ids, table.ligature_glyph)
+LigatureSubstitution(table::GSUBLookupLigatureTable) = LigatureSubstitution(Coverage(table.coverage_table), [LigatureEntry.(set.ligature_tables) for set in table.ligature_set_tables])
+
+function SubstitutionRule(table::GSUBLookupTable)
+  (; lookup_type, subtables) = table
+  lookup_type == 7 && return SubstitutionRule(table.table.extension_table)
+  rule_impls = if lookup_type == 1
+    Any[SingleSubstitution(table) for table::Union{SingleTableFormat1, SingleTableFormat2} in subtables]
+  elseif lookup_type == 2
+    Any[MultipleSubtitution(table) for table::GSUBLookupMultipleTable in subtables]
+  elseif lookup_type == 3
+    Any[AlternateSubtitution(table) for table::GSUBLookupAlternateTable in subtables]
+  elseif lookup_type == 4
+    Any[LigatureSubstitution(table) for table::GSUBLookupLigatureTable in subtables]
+  elseif lookup_type == 5
+    Any[ContextualRule(table.table::Union{SequenceContextTableFormat1, SequenceContextTableFormat2, SequenceContextTableFormat3}) for table::GSUBContextualTable in subtables]
+  elseif lookup_type == 6
+    Any[ChainedContextualRule(table.table::Union{ChainedSequenceContextFormat1, ChainedSequenceContextFormat2, ChainedSequenceContextFormat3}) for table::GSUBChainedContextualTable in subtables]
+  else
+    @assert false
+  end
+  # We don't cover the extension table, and there are tables after it.
+  lookup_type > 7 && (lookup_type -= 1)
+  SubstitutionRule(SubstitutionRuleType(lookup_type), table.lookup_flag, table.mark_filtering_set, rule_impls)
+end
+
+# There is quite some overlap with the GlyphPositioning table, we might want to factor out the common logic.
+
+function substitution_rules(table::GlyphSubstitutionTable)
+  rules = SubstitutionRule[]
+  for lookup_table::GSUBLookupTable in table.lookup_list_table.lookup_tables
+    if lookup_table.lookup_type == 7
+      append!(rules, SubstitutionRule(subtable.extension_table) for subtable in lookup_table.subtables)
+    else
+      push!(rules, SubstitutionRule(lookup_table))
+    end
+  end
+  rules
+end
+
+function GlyphSubstitution(gpos::GlyphSubstitutionTable)
+  scripts = Dict(script.tag => script for script in Script.(gpos.script_list_table.script_records))
+  features = Feature.(gpos.feature_list_table.feature_records)
+  GlyphSubstitution(scripts, features, substitution_rules(gpos))
 end
