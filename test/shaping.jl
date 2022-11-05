@@ -7,10 +7,7 @@ using GeometryExperiments
   @test last(shape(font, "AV", options)) == [GlyphOffset(0, 0, 665, 0), GlyphOffset(0, 0, 675, 0)]
 
   # Cursive positioning rules.
-  file = font_file("cherolina")
-  font = OpenTypeFont(file);
-  options = ShapingOptions(tag"latn", tag"fra ")
-  shape(font, "he", options)
+  # TODO
 
 
   # Lao script & language. Has lots of diacritic marks for use with mark-to-base and mark-to-mark positioning tests.
