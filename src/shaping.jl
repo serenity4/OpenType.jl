@@ -53,13 +53,57 @@ end
 
 ShapingOptions(script, language, direction::Direction = DIRECTION_LEFT_TO_RIGHT; disabled_features = Tag{4}[]) = ShapingOptions(script, language, direction, Set(@something(disabled_features, Tag{4}[])))
 
-shape(font::OpenTypeFont, text::AbstractString, options::ShapingOptions) = shape(font, collect(text), options)
+struct SubstitutionInfo
+  type::SubstitutionRuleType
+  replacement::Optional{Pair{Union{GlyphID, Vector{GlyphID}}, Union{GlyphID, Vector{GlyphID}}}}
+  index::Int
+  range::Int
+  glyph::GlyphID
+end
 
-function shape(font::OpenTypeFont, chars::AbstractVector{Char}, options::ShapingOptions)
+struct PositioningInfo
+  type::PositioningRuleType
+  offsets::Pair{Union{GlyphID, Vector{GlyphID}}, Union{GlyphOffset, Vector{GlyphOffset}}}
+  index::Int
+  range::UnitRange{Int}
+  glyph::GlyphID
+end
+
+struct ShapingInfo
+  substitutions::Vector{SubstitutionInfo}
+  positionings::Vector{PositioningInfo}
+end
+
+ShapingInfo() = ShapingInfo([], [])
+
+function record_substitution!(info::ShapingInfo, (; type)::SubstitutionRule, glyphs, i, ret, range)
+  @assert in(i, range)
+  replaced = length(range) == 1 ? glyphs[i] : glyphs[range]
+  pair = isnothing(ret) ? nothing : replaced => ret
+  push!(info.substitutions, SubstitutionInfo(type, pair, i, range, glyphs[i]))
+end
+
+function record_positioning!(info::ShapingInfo, (; type)::PositioningRule, glyphs, i, ret, range)
+  @assert in(i, range)
+  affected = length(range) == 1 ? glyphs[i] : glyphs[range]
+  pair = isnothing(ret) ? nothing : affected => ret
+  push!(info.positionings, PositioningInfo(type, pair, i, range, glyphs[i]))
+end
+
+shape(font::OpenTypeFont, text::AbstractString, options::ShapingOptions; info::Optional{ShapingInfo} = nothing) = shape(font, collect(text), options; info)
+
+function shape(font::OpenTypeFont, chars::AbstractVector{Char}, options::ShapingOptions; info::Optional{ShapingInfo} = nothing)
   glyph_ids = glyph_index.(font, chars)
-  apply_substitution_rules!(glyph_ids, font.gsub, font.gdef, options.script, options.language, options.disabled_features)
+
+  # Glyph substitution.
+  callback = isnothing(info) ? nothing : (args...) -> record_substitution!(info, args...)
+  apply_substitution_rules!(glyph_ids, font.gsub, font.gdef, options.script, options.language, options.disabled_features, (glyph, alts) -> glyph, callback)
+
+  # Glyph positioning.
   offsets = zeros(GlyphOffset, length(glyph_ids))
   compute_advances!(offsets, font, glyph_ids, options.direction)
-  apply_positioning_rules!(offsets, font.gpos, font.gdef, glyph_ids, options.script, options.language, options.disabled_features)
+  callback = isnothing(info) ? nothing : (args...) -> record_positioning!(info, args...)
+  apply_positioning_rules!(offsets, font.gpos, font.gdef, glyph_ids, options.script, options.language, options.disabled_features, callback)
+
   glyph_ids, offsets
 end

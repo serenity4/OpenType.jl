@@ -31,25 +31,26 @@ Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", of
 Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
 Base.:(+)(x::GlyphOffset, y::GlyphOffset) = GlyphOffset(x.origin + y.origin, x.advance + y.advance)
 
-apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = apply_positioning_rules!(glyph_offsets, gpos, gdef, glyphs, applicable_features(gpos, script_tag, language_tag, disabled_features))
+apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}}, callback::Optional{Function}) = apply_positioning_rules!(glyph_offsets, gpos, gdef, glyphs, applicable_features(gpos, script_tag, language_tag, disabled_features), callback)
 
-function apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, features::Vector{Feature})
+function apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, features::Vector{Feature}, callback::Optional{Function})
   for rule in applicable_rules(gpos, features)
     i = firstindex(glyphs)
     while i ≤ lastindex(glyphs)
-      next = apply_positioning_rule!(glyph_offsets, rule, gpos, gdef, i, glyphs, nothing)
+      next = apply_positioning_rule!(glyph_offsets, rule, gpos, gdef, i, glyphs, nothing, callback)
       i = something(next, i + 1)
     end
   end
   glyph_offsets
 end
 
-function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rule::PositioningRule, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, i::Int, glyphs::AbstractVector{GlyphID}, ligature_component::Optional{Int})
+function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rule::PositioningRule, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, i::Int, glyphs::AbstractVector{GlyphID}, ligature_component::Optional{Int}, callback::Optional{Function})
   (; type, rule_impls) = rule
   if type == POSITIONING_RULE_ADJUSTMENT
     for impl::AdjustmentPositioning in rule_impls
       offset = apply_positioning_rule(glyphs[i], impl)
       if !isnothing(offset)
+        !isnothing(callback) && callback(rule, glyphs, i, offset, i:i)
         glyph_offsets[i] += offset
         return i + 1
       end
@@ -58,6 +59,7 @@ function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rul
     for impl::Union{PairAdjustmentPositioning, ClassPairAdjustmentPositioning} in rule_impls
       ret = apply_positioning_rule(glyphs[i] => glyphs[i + 1], impl)
       if !isnothing(ret)
+        !isnothing(callback) && callback(rule, glyphs, i, collect(ret), i:(i + 1))
         glyph_offsets[i] += ret.first
         glyph_offsets[i + 1] += ret.second
         return ret.second == zero(GlyphOffset) ? i + 1 : i + 2
@@ -68,7 +70,9 @@ function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rul
       for impl::MarkToLigatureRule in rule_impls
         ret = apply_positioning_rule(glyphs[i - 1] => glyphs[i], impl, ligature_component::Int)
         if !isnothing(ret)
-          glyph_offsets[i] += align_anchors(glyph_offsets, i, ret)
+          offset = align_anchors(glyph_offsets, i, ret)
+          !isnothing(callback) && callback(rule, glyphs, i, offset, i:i)
+          glyph_offsets[i] += offset
           return i + 1
         end
       end
@@ -76,30 +80,38 @@ function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rul
       for impl::Union{CursivePositioningRule, MarkToBaseRule, MarkToMarkRule} in rule_impls
         ret = apply_positioning_rule(glyphs[i - 1] => glyphs[i], impl)
         if !isnothing(ret)
-          glyph_offsets[i] += align_anchors(glyph_offsets, i, ret)
+          offset = align_anchors(glyph_offsets, i, ret)
+          glyph_offsets[i] += offset
+          !isnothing(callback) && callback(rule, glyphs, i, offset, i:i)
           return i + 1
         end
       end
     end
   elseif type == POSITIONING_RULE_CONTEXTUAL
     for impl::ContextualRule in rule_impls
-      last_matched = contextual_match(rules -> apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs, ligature_component, rules), i, glyphs, impl)
+      last_matched = contextual_match(i, glyphs, impl) do rules
+        !isnothing(callback) && callback(rule, glyphs, i, rules, i:(i + length(rules) - 1))
+        apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs, ligature_component, rules, callback)
+      end
       !isnothing(last_matched) && return last_matched + 1
     end
   elseif type == POSITIONING_RULE_CONTEXTUAL_CHAINED
     for impl::ChainedContextualRule in rule_impls
-      last_matched = chained_contextual_match(rules -> apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs, ligature_component, rules), i, glyphs, impl)
+      last_matched = chained_contextual_match(i, glyphs, impl) do rules
+        !isnothing(callback) && callback(rule, glyphs, i, rules, i:(i + length(rules) - 1))
+        apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs, ligature_component, rules, callback)
+      end
       !isnothing(last_matched) && return last_matched + 1
     end
   end
 end
 
-function apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs, ligature_component, rules)
+function apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs, ligature_component, rules, callback)
   jmax = 0
   for (seq_index, lookup_index) in rules
     j = i + (seq_index - 1)
     jmax = max(jmax, j)
-    apply_positioning_rule!(glyph_offsets, gpos.rules[lookup_index], gpos, gdef, glyphs, ligature_component, j)
+    apply_positioning_rule!(glyph_offsets, gpos.rules[lookup_index], gpos, gdef, glyphs, ligature_component, j, callback)
   end
   jmax
 end

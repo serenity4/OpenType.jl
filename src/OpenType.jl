@@ -38,7 +38,46 @@ include("char_to_glyph.jl")
 include("shaping.jl")
 include("text.jl")
 
-export GlyphID, GlyphOffset, OpenTypeData, OpenTypeFont, FontOptions, TextOptions, text_glyphs, glyph_offsets, positioning_rules, @tag_str, @tag2_str, @tag3_str, @tag4_str, shape, ShapingOptions, Direction, DIRECTION_LEFT_TO_RIGHT, DIRECTION_RIGHT_TO_LEFT, DIRECTION_TOP_TO_BOTTOM, DIRECTION_BOTTOM_TO_TOP
+export GlyphID,
+  GlyphOffset,
+  OpenTypeData,
+  OpenTypeFont,
+  FontOptions,
+  TextOptions,
+  text_glyphs,
 
+  @tag_str,
+  @tag2_str,
+  @tag3_str,
+  @tag4_str,
+
+  shape,
+  ShapingOptions,
+  ShapingInfo,
+
+  Direction,
+  DIRECTION_LEFT_TO_RIGHT,
+  DIRECTION_RIGHT_TO_LEFT,
+  DIRECTION_TOP_TO_BOTTOM,
+  DIRECTION_BOTTOM_TO_TOP,
+
+  PositioningRuleType,
+  POSITIONING_RULE_ADJUSTMENT,
+  POSITIONING_RULE_PAIR_ADJUSTMENT,
+  POSITIONING_RULE_CURSIVE,
+  POSITIONING_RULE_MARK_TO_BASE,
+  POSITIONING_RULE_MARK_TO_LIGATURE,
+  POSITIONING_RULE_MARK_TO_MARK,
+  POSITIONING_RULE_CONTEXTUAL,
+  POSITIONING_RULE_CONTEXTUAL_CHAINED,
+
+  SubstitutionRuleType,
+  SUBSTITUTION_RULE_SINGLE,
+  SUBSTITUTION_RULE_MULTIPLE,
+  SUBSTITUTION_RULE_ALTERNATE,
+  SUBSTITUTION_RULE_LIGATURE,
+  SUBSTITUTION_RULE_CONTEXTUAL,
+  SUBSTITUTION_RULE_CONTEXTUAL_CHAINED,
+  SUBSTITUTION_RULE_REVERSE_CONTEXTUAL_CHAINED_SINGLE
 
 end
