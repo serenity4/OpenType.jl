@@ -19,24 +19,26 @@ end
 apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}}, choose_alternate::Function, callback::Optional{Function}) = apply_substitution_rules!(glyphs, gsub, gdef, applicable_features(gsub, script_tag, language_tag, disabled_features), choose_alternate, callback)
 
 function apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, features::Vector{Feature}, choose_alternate::Function, callback::Optional{Function})
-  for rule in applicable_rules(gsub, features)
-    i = firstindex(glyphs)
-    while i ≤ lastindex(glyphs)
-      next = apply_substitution_rule!(glyphs, rule, gsub, gdef, i, choose_alternate, callback)
-      i = something(next, i + 1)
+  for feature in features
+    for rule in applicable_rules(gsub, feature)
+      i = firstindex(glyphs)
+      while i ≤ lastindex(glyphs)
+        next = apply_substitution_rule!(glyphs, rule, gsub, gdef, i, choose_alternate, feature, callback)
+        i = something(next, i + 1)
+      end
     end
   end
   glyphs
 end
 
-function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::SubstitutionRule, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, i::Int, choose_alternate::Function, callback::Optional{Function})
-  !isnothing(gdef) && !should_skip(rule, glyphs[i], gdef) && return nothing
+function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::SubstitutionRule, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, i::Int, choose_alternate::Function, feature::Feature, callback::Optional{Function})
+  !isnothing(gdef) && should_skip(rule, glyphs[i], gdef) && return nothing
   (; type, rule_impls) = rule
   if type == SUBSTITUTION_RULE_SINGLE
     for impl::SingleSubstitution in rule_impls
       sub = apply_substitution_rule(glyphs[i], impl)
       if !isnothing(sub)
-        !isnothing(callback) && callback(rule, glyphs, i, sub, i:i)
+        !isnothing(callback) && callback(rule, feature, glyphs, i, sub, i:i)
         glyphs[i] = sub
         return i + 1
       end
@@ -45,7 +47,7 @@ function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::Substit
     for impl::MultipleSubtitution in rule_impls
       ret = apply_substitution_rule(glyphs[i], impl)
       if !isnothing(ret)
-        !isnothing(callback) && callback(rule, glyphs, i, ret, i:i)
+        !isnothing(callback) && callback(rule, feature, glyphs, i, ret, i:i)
         sub, subs... = ret
         glyphs[i] = sub
         for sub in subs
@@ -59,7 +61,7 @@ function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::Substit
       alts = alternatives(glyphs[i], impl)
       if !isnothing(alts)
         alt = choose_alternate(glyphs[i], alts)
-        !isnothing(callback) && callback(rule, glyphs, i, alt, i:i)
+        !isnothing(callback) && callback(rule, feature, glyphs, i, alt, i:i)
         glyphs[i] = alt
         return i + 1
       end
@@ -69,7 +71,7 @@ function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::Substit
       ret = apply_substitution_rule(glyphs, i, impl)
       if !isnothing(ret)
         n, sub = ret
-        !isnothing(callback) && callback(rule, glyphs, i, sub, i:(i + n - 1))
+        !isnothing(callback) && callback(rule, feature, glyphs, i, sub, i:(i + n - 1))
         glyphs[i] = sub
         splice!(glyphs, (i + 1):(i + n - 1))
         return i + n
@@ -78,7 +80,7 @@ function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::Substit
   elseif type == SUBSTITUTION_RULE_CONTEXTUAL
     for impl::ContextualRule in rule_impls
       last_matched = contextual_match(i, glyphs, impl) do rules
-        !isnothing(callback) && callback(rule, glyphs, i, rules, i:i)
+        !isnothing(callback) && callback(rule, feature, glyphs, i, rules, i:i)
         apply_substitution_rules_recursive!(glyphs, i, gsub, gdef, callback)
       end
       !isnothing(last_matched) && return last_matched + 1
@@ -86,7 +88,7 @@ function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::Substit
   elseif type == SUBSTITUTION_RULE_CONTEXTUAL_CHAINED
     for impl::ChainedContextualRule in rule_impls
       last_matched = chained_contextual_match(i, glyphs, impl) do rules
-        !isnothing(callback) && callback(rule, glyphs, i, rules, i:i)
+        !isnothing(callback) && callback(rule, feature, glyphs, i, rules, i:i)
         apply_substitution_rules_recursive!(glyphs, i, gsub, gdef, callback)
       end
       !isnothing(last_matched) && return last_matched + 1
@@ -155,7 +157,7 @@ function apply_substitution_rule(glyphs::Vector{GlyphID}, i::Integer, pattern::L
   j = match(pattern.coverage, glyphs[i])
   !isnothing(j) && for ligature in pattern.ligatures[j]
       n = length(ligature.tail_match)
-      ligature.tail_match == (@view glyphs[(i + 1):n]) && return (n + 1, ligature.substitution)
+      ligature.tail_match == (@view glyphs[(i + 1):(n - 1)]) && return (n + 1, ligature.substitution)
     end
   nothing
 end

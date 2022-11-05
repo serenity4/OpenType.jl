@@ -91,7 +91,7 @@ struct ContextualRule
   glyph_sequences::Optional{Vector{Optional{Vector{SequenceEntry{GlyphID}}}}} # coverage index => sequence index
   class_sequences::Optional{Vector{Optional{Vector{SequenceEntry{ClassID}}}}} # coverage index => sequence index
   class_definition::Optional{ClassDefinition}
-  coverage_sequences::Optional{SequenceEntry{Coverage}}
+  coverage_sequence::Optional{SequenceEntry{Coverage}}
 end
 
 function is_glyph_match(f, glyphs, i, sequence, k, offset = 0)
@@ -101,7 +101,7 @@ function is_glyph_match(f, glyphs, i, sequence, k, offset = 0)
 end
 
 function contextual_match(f, i, glyphs, rule::ContextualRule)
-  (; coverage, glyph_sequences, class_sequences, class_definition, coverage_sequences, coverage_rules) = rule
+  (; coverage, glyph_sequences, class_sequences, class_definition, coverage_sequence) = rule
   if !isnothing(coverage)
     j = match(coverage, glyphs[i])
     isnothing(j) && return nothing
@@ -188,10 +188,7 @@ function applicable_features(fset::LookupFeatureSet, script_tag::Tag{4}, languag
   features
 end
 
-function applicable_rules(fset::LookupFeatureSet, features::Vector{Feature})
-  indices = sort!(foldl((x, y) -> vcat(x, y.lookup_indices), features; init = UInt16[]))
-  @view fset.rules[indices .+ 1]
-end
+applicable_rules(fset::LookupFeatureSet, feature::Feature) = @view fset.rules[sort!(feature.lookup_indices .+ 1)]
 
 applicable_rules(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = applicable_rules(fset::LookupFeatureSet, applicable_features(fset, script_tag, language_tag, disabled_features))
 

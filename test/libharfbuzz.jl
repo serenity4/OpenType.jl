@@ -61,5 +61,7 @@ function hb_shape(font_file::AbstractString, text::AbstractString, options::Shap
   @ccall libharfbuzz.hb_face_destroy(face::Ptr{Nothing})::Ptr{Nothing}
   @ccall libharfbuzz.hb_blob_destroy(blob::Ptr{Nothing})::Ptr{Nothing}
 
-  (infos, GlyphOffset.(positions))
+  glyph_ids = GlyphID.(getproperty.(infos, :codepoint))
+  offsets = GlyphOffset.(positions)
+  glyph_ids, offsets
 end

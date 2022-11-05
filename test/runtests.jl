@@ -7,6 +7,6 @@ include("libharfbuzz.jl")
     include("tags.jl")
     include("glyphs.jl")
     include("google_fonts.jl")
-    include("shaping.jl")
     include("harfbuzz.jl")
+    include("shaping.jl")
 end;

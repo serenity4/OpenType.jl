@@ -54,14 +54,16 @@ end
 ShapingOptions(script, language, direction::Direction = DIRECTION_LEFT_TO_RIGHT; disabled_features = Tag{4}[]) = ShapingOptions(script, language, direction, Set(@something(disabled_features, Tag{4}[])))
 
 struct SubstitutionInfo
+  feature::Tag{4}
   type::SubstitutionRuleType
   replacement::Optional{Pair{Union{GlyphID, Vector{GlyphID}}, Union{GlyphID, Vector{GlyphID}}}}
   index::Int
-  range::Int
+  range::UnitRange{Int}
   glyph::GlyphID
 end
 
 struct PositioningInfo
+  feature::Tag{4}
   type::PositioningRuleType
   offsets::Pair{Union{GlyphID, Vector{GlyphID}}, Union{GlyphOffset, Vector{GlyphOffset}}}
   index::Int
@@ -76,18 +78,18 @@ end
 
 ShapingInfo() = ShapingInfo([], [])
 
-function record_substitution!(info::ShapingInfo, (; type)::SubstitutionRule, glyphs, i, ret, range)
+function record_substitution!(info::ShapingInfo, (; type)::SubstitutionRule, (; tag)::Feature, glyphs, i, ret, range)
   @assert in(i, range)
   replaced = length(range) == 1 ? glyphs[i] : glyphs[range]
   pair = isnothing(ret) ? nothing : replaced => ret
-  push!(info.substitutions, SubstitutionInfo(type, pair, i, range, glyphs[i]))
+  push!(info.substitutions, SubstitutionInfo(tag, type, pair, i, range, glyphs[i]))
 end
 
-function record_positioning!(info::ShapingInfo, (; type)::PositioningRule, glyphs, i, ret, range)
+function record_positioning!(info::ShapingInfo, (; type)::PositioningRule, (; tag)::Feature, glyphs, i, ret, range)
   @assert in(i, range)
   affected = length(range) == 1 ? glyphs[i] : glyphs[range]
   pair = isnothing(ret) ? nothing : affected => ret
-  push!(info.positionings, PositioningInfo(type, pair, i, range, glyphs[i]))
+  push!(info.positionings, PositioningInfo(tag, type, pair, i, range, glyphs[i]))
 end
 
 shape(font::OpenTypeFont, text::AbstractString, options::ShapingOptions; info::Optional{ShapingInfo} = nothing) = shape(font, collect(text), options; info)

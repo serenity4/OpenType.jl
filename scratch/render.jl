@@ -108,7 +108,9 @@ font = OpenTypeFont(font_file("juliamono"));
 # Note that indices to `font.glyphs` correspond to `glyph_id + 1`.
 # You can use `font[GlyphID(id)]` to directly access a glyph by its ID.
 
-glyph = font.glyphs[563]
+plot_outline(font[0x003c])
+plot_outline(font[0x0054])
+render_glyph(font, font[0x0054], 12)
 
 glyph = font.glyphs[64]
 plot_outline(glyph)
