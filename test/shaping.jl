@@ -1,25 +1,38 @@
-using OpenType: glyph_index, horizontal_metric, Tag
 using GeometryExperiments
 
 @testset "Shaping" begin
   # A font with kerning.
   font = OpenTypeFont(first(google_font_files["notoserifgujarati"]));
   options = ShapingOptions(tag"latn", tag"fra ")
-  @test last(shape(font, "AV", options)) == [GlyphOffset(Point(0, 0), Point(665, 0)), GlyphOffset(Point(0, 0), Point(675, 0))]
+  @test last(shape(font, "AV", options)) == [GlyphOffset(0, 0, 665, 0), GlyphOffset(0, 0, 675, 0)]
+
+  # Cursive positioning rules.
+  file = font_file("cherolina")
+  font = OpenTypeFont(file);
+  options = ShapingOptions(tag"latn", tag"fra ")
+  shape(font, "he", options)
+
 
   # Lao script & language. Has lots of diacritic marks for use with mark-to-base and mark-to-mark positioning tests.
-  font = OpenTypeFont(first(google_font_files["notoseriflao"]));
+  file = first(google_font_files["notoseriflao"])
+  font = OpenTypeFont(file);
   options = ShapingOptions(tag"lao ", tag"dflt")
 
   # Simple mark-to-base positioning.
-  @test last(shape(font, "ສົ", options)) == [GlyphOffset(Point(0, 0), Point(603, 0)), GlyphOffset(Point(-6, 0), Point(0, 0))]
-  @test last(shape(font, "ກີບ", options)) == [GlyphOffset(Point(0, 0), Point(633, 0)), GlyphOffset(Point(-4, 0), Point(0, 0)), GlyphOffset(Point(0, 0), Point(635, 0))]
+  @test last(shape(font, "ສົ", options)) == [GlyphOffset(0, 0, 603, 0), GlyphOffset(-6, 0, 0, 0)]
+  @test last(shape(font, "ກີບ", options)) == [GlyphOffset(0, 0, 633, 0), GlyphOffset(-4, 0, 0, 0), GlyphOffset(0, 0, 635, 0)]
 
   # Mark-to-base and mark-to-mark positioning. The text may not be rendered correctly on an editor, but marks should neatly stack on top of each other so that we have three distinct graphemes: the base, first mark above the base, and second mark above the mark.
-  @test last(shape(font, "\ue99\ueb5\uec9", options)) == [GlyphOffset(Point(0, 0), Point(606, 0)), GlyphOffset(Point(24, 0), Point(0, 0)), GlyphOffset(Point(24, 339), Point(0, 0))]
+  @test last(shape(font, "\ue99\ueb5\uec9", options)) == [GlyphOffset(0, 0, 606, 0), GlyphOffset(24, 0, 0, 0), GlyphOffset(24, 339, 0, 0)]
 
   # Hindi language, based on the Devanagari script. Seems to have lots of substitutions including contextual substitutions.
-  font = OpenTypeFont(first(google_font_files["notoserifdevanagari"]));
+  file = first(google_font_files["notoserifdevanagari"])
+  font = OpenTypeFont(file);
   options = ShapingOptions(tag"deva", tag"HIN ")
-  # TODO
+  @test_broken shape(font, "ल\u094dल", options) == ([0x0116, 0x0053], [GlyphOffset(0, 0, 449, 0), GlyphOffset(0, 0, 655, 0)])
+
+  # res = shape(font, "ल\u094dल", options)
+  # res = hb_shape(file, "ल\u094dल", options)
+  # res = shape(font, "\u0939\u093f\u0928\u094d\u0926\u0940", options)
+  # expected = "हिन्दी"
 end

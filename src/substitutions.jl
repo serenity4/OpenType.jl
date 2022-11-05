@@ -72,22 +72,27 @@ function apply_substitution_rule!(glyphs::AbstractVector{GlyphID}, rule::Substit
     end
   elseif type == SUBSTITUTION_RULE_CONTEXTUAL
     for impl::ContextualRule in rule_impls
-      last_matched = contextual_match(i, glyphs, impl) do rules
-        jmax = 0
-        for (seq_index, lookup_index) in rules
-          j = i + (seq_index - 1)
-          jmax = max(jmax, j)
-          apply_substitution_rule!(glyphs, gsub.rules[lookup_index], gsub, gdef, j)
-        end
-        jmax
-      end
+      last_matched = contextual_match(rules -> apply_substitution_rules_recursive!(glyphs, i, gsub, gdef), i, glyphs, impl)
       !isnothing(last_matched) && return last_matched + 1
     end
   elseif type == SUBSTITUTION_RULE_CONTEXTUAL_CHAINED
-    # TODO
+    for impl::ChainedContextualRule in rule_impls
+      last_matched = chained_contextual_match(rules -> apply_substitution_rules_recursive!(glyphs, i, gsub, gdef), i, glyphs, impl)
+      !isnothing(last_matched) && return last_matched + 1
+    end
   elseif type == SUBSTITUTION_RULE_REVERSE_CONTEXTUAL_CHAINED_SINGLE
     # TODO
   end
+end
+
+function apply_substitution_rules_recursive!(glyphs, i, gsub, gdef, rules)
+  jmax = 0
+  for (seq_index, lookup_index) in rules
+    j = i + (seq_index - 1)
+    jmax = max(jmax, j)
+    apply_substitution_rule!(glyphs, gsub.rules[lookup_index], gsub, gdef, j)
+  end
+  jmax
 end
 
 struct SingleSubstitution

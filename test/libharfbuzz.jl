@@ -15,6 +15,8 @@ struct hb_glyph_info_t
   var2::UInt32 # private
 end
 
+Base.show(io::IO, info::hb_glyph_info_t) = print(io, hb_glyph_info_t, "(codepoint: ", repr(info.codepoint), ", cluster: ", info.cluster, ')')
+
 struct hb_glyph_position_t
   x_advance::Int32
   y_advance::Int32
@@ -22,6 +24,8 @@ struct hb_glyph_position_t
   y_offset::Int32
   var::UInt32 # private
 end
+
+OpenType.GlyphOffset(info::hb_glyph_position_t) = GlyphOffset(info.x_offset, info.y_offset, info.x_advance, info.y_advance)
 
 const CEnum_T = Int16
 
@@ -57,5 +61,5 @@ function hb_shape(font_file::AbstractString, text::AbstractString, options::Shap
   @ccall libharfbuzz.hb_face_destroy(face::Ptr{Nothing})::Ptr{Nothing}
   @ccall libharfbuzz.hb_blob_destroy(blob::Ptr{Nothing})::Ptr{Nothing}
 
-  (infos, positions)
+  (infos, GlyphOffset.(positions))
 end

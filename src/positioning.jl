@@ -24,6 +24,8 @@ struct GlyphOffset
   advance::Point{2,Int16}
 end
 
+GlyphOffset(x_offset, y_offset, x_advance, y_advance) = GlyphOffset(Point{2,Int16}(x_offset, y_offset), Point{2,Int16}(x_advance, y_advance))
+
 Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", offset.origin, ", advance = ", offset.advance, ")")
 
 Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
@@ -81,20 +83,25 @@ function apply_positioning_rule!(glyph_offsets::AbstractVector{GlyphOffset}, rul
     end
   elseif type == POSITIONING_RULE_CONTEXTUAL
     for impl::ContextualRule in rule_impls
-      last_matched = contextual_match(i, glyphs, impl) do rules
-        jmax = 0
-        for (seq_index, lookup_index) in rules
-          j = i + (seq_index - 1)
-          jmax = max(jmax, j)
-          apply_positioning_rule!(glyph_offsets, gpos.rules[lookup_index], gpos, gdef, j, glyphs, ligature_component)
-        end
-        jmax
-      end
+      last_matched = contextual_match(rules -> apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs, ligature_component, rules), i, glyphs, impl)
       !isnothing(last_matched) && return last_matched + 1
     end
   elseif type == POSITIONING_RULE_CONTEXTUAL_CHAINED
-    # TODO
+    for impl::ChainedContextualRule in rule_impls
+      last_matched = chained_contextual_match(rules -> apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs, ligature_component, rules), i, glyphs, impl)
+      !isnothing(last_matched) && return last_matched + 1
+    end
   end
+end
+
+function apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs, ligature_component, rules)
+  jmax = 0
+  for (seq_index, lookup_index) in rules
+    j = i + (seq_index - 1)
+    jmax = max(jmax, j)
+    apply_positioning_rule!(glyph_offsets, gpos.rules[lookup_index], gpos, gdef, glyphs, ligature_component, j)
+  end
+  jmax
 end
 
 function align_anchors(offsets::AbstractVector{GlyphOffset}, i::Int, (base, next)::Tuple{Point{2,Int16}, Point{2,Int16}})

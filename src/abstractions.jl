@@ -81,18 +81,23 @@ function class(glyph::GlyphID, def::ClassDefinition)
   zero(ClassID)
 end
 
-struct SequenceEntry
-  tail::Vector{UInt16}
+struct SequenceEntry{T<:Union{GlyphID, ClassID, Coverage}}
+  tail::Vector{T}
   rules::Vector{Pair{UInt16,UInt16}} # sequence index => rule index
 end
 
 struct ContextualRule
   coverage::Optional{Coverage}
-  glyph_sequences::Optional{Vector{Optional{Vector{SequenceEntry}}}} # coverage index => sequence index
-  class_sequences::Optional{Vector{Optional{Vector{SequenceEntry}}}} # coverage index => sequence index
+  glyph_sequences::Optional{Vector{Optional{Vector{SequenceEntry{GlyphID}}}}} # coverage index => sequence index
+  class_sequences::Optional{Vector{Optional{Vector{SequenceEntry{ClassID}}}}} # coverage index => sequence index
   class_definition::Optional{ClassDefinition}
-  coverage_sequences::Optional{Vector{Coverage}}
-  coverage_rules::Optional{Vector{Pair{UInt16,UInt16}}} # sequence index => rule index
+  coverage_sequences::Optional{SequenceEntry{Coverage}}
+end
+
+function is_glyph_match(f, glyphs, i, sequence, k, offset = 0)
+  j = i + offset + k - 1
+  in(eachindex(glyphs), j) || return false
+  f(sequence[k], glyphs[j])
 end
 
 function contextual_match(f, i, glyphs, rule::ContextualRule)
@@ -104,41 +109,71 @@ function contextual_match(f, i, glyphs, rule::ContextualRule)
       sequences = glyph_sequences[j]
       isnothing(sequences) && return nothing
       for sequence in sequences
-        all(sequence.tail[k] == glyphs[i + (k - 1)] for k in eachindex(sequence.tail)) && return f(sequence.rules)
+        all(is_glyph_match((==), glyphs, i, sequence.tail, k) for k in eachindex(sequence.tail)) && return f(sequence.rules)
       end
     elseif !isnothing(class_sequences)
       sequences = class_sequences[j]
       isnothing(sequences) && return nothing
       class_definition::ClassDefinition
       for sequence in sequences
-        all(sequence.tail[k] == class(glyphs[i + (k - 1)], class_definition) for k in eachindex(sequence.tail)) && return f(sequence.rules)
+        all(is_glyph_match((x, glyph) -> x == class(glyph, class_definition), glyphs, i, sequence.tail, k) for k in eachindex(sequence.tail)) && return f(sequence.rules)
       end
     end
   else
-    coverage_sequences::Vector{Coverage}
-    all(contains(coverage_sequences[k], glyphs[i + (k - 1)]) for k in eachindex(coverage_sequences)) && return f(coverage_rules::Vector{Pair{UInt16,UInt16}})
+    sequence = coverage_sequence::SequenceEntry{Coverage}
+    all(is_glyph_match(contains, glyphs, i, sequence.tail, k) for k in eachindex(sequence.tail)) && return f(sequence.rules)
   end
   nothing
 end
 
-struct ChainMatch
-  backtrack_sequence::Vector{UInt16}
-  tail::Vector{UInt16}
-  lookahead_sequence::Vector{UInt16}
+struct ChainedSequenceEntry{T<:Union{GlyphID, ClassID, Coverage}}
+  backtrack::Vector{T}
+  tail::Vector{T}
+  lookahead::Vector{T}
   rules::Vector{Pair{UInt16,UInt16}} # sequence index => rule index
-end
-
-struct ChainedSequenceEntry
-  matches::Vector{ChainMatch}
 end
 
 struct ChainedContextualRule
   coverage::Optional{Coverage}
-  glyph_sequences::Optional{Vector{Optional{ChainedSequenceEntry}}}
-  class_sequences::Optional{Vector{Optional{ChainedSequenceEntry}}}
+  glyph_sequences::Optional{Vector{Optional{Vector{ChainedSequenceEntry{GlyphID}}}}}
+  class_sequences::Optional{Vector{Optional{Vector{ChainedSequenceEntry{ClassID}}}}}
   class_definitions::Optional{NTuple{3, ClassDefinition}} # backtrack, input and lookahead classes
-  coverage_sequences::Optional{NTuple{3, Vector{Coverage}}} # backtrack, input and lookahead coverages
-  coverage_rules::Optional{Vector{Pair{UInt16,UInt16}}} # sequence index => rule index
+  coverage_sequence::Optional{ChainedSequenceEntry{Coverage}}
+end
+
+function chained_contextual_match(f, i, glyphs, rule::ChainedContextualRule)
+  (; coverage, glyph_sequences, class_sequences, class_definitions, coverage_sequence) = rule
+  if !isnothing(coverage)
+    j = match(coverage, glyphs[i])
+    isnothing(j) && return nothing
+    if !isnothing(glyph_sequences)
+      sequences = glyph_sequences[j]
+      isnothing(sequences) && return nothing
+      for sequence in sequences
+        all(is_glyph_match((==), glyphs, i, sequence.tail, k) for k in eachindex(sequence.tail)) &&
+          all(is_glyph_match((==), glyphs, i, sequence.lookahead, k, -length(sequence.lookahead)) for k in eachindex(sequence.lookahead)) &&
+          all(is_glyph_match((==), glyphs, i, sequence.backtrack, k, length(sequence.backtrack)) for k in eachindex(sequence.backtrack)) &&
+          return f(sequence.rules)
+      end
+    elseif !isnothing(class_sequences)
+      sequences = class_sequences[j]
+      isnothing(sequences) && return nothing
+      class_definitions::NTuple{3, ClassDefinition}
+      for sequence in sequences
+        all(is_glyph_match((x, glyph) -> x == class(glyph, class_definitions[1]), glyphs, i, sequence.tail) for k in eachindex(sequence.tail)) &&
+          all(is_glyph_match((x, glyph) -> x == class(glyph, class_definitions[2]), glyphs, i, sequence.lookahead, -length(sequence.lookahead)) for k in eachindex(sequence.lookahead)) &&
+          all(is_glyph_match((x, glyph) -> x == class(glyph, class_definitions[3]), glyphs, i, sequence.backtrack, +length(sequence.tail)) for k in eachindex(sequence.backtrack)) &&
+          return f(sequence.rules)
+      end
+    end
+  else
+    sequence = coverage_sequence::ChainedSequenceEntry{Coverage}
+    all(is_glyph_match(contains, glyphs, i, sequence.tail, k) for k in eachindex(sequence.tail)) &&
+      all(is_glyph_match(contains, glyphs, i, sequence.lookahead, k, -length(sequence.lookahead)) for k in eachindex(sequence.lookahead)) &&
+      all(is_glyph_match(contains, glyphs, i, sequence.backtrack, k, length(sequence.backtrack)) for k in eachindex(sequence.backtrack)) &&
+      return f(sequence.rules)
+  end
+  nothing
 end
 
 "Common supertype for GPOS and GSUB abstractions, which share a script- and language-based selection of features to apply."
@@ -217,18 +252,17 @@ SequenceEntry(table::SequenceRuleTable) = SequenceEntry(table.input_sequence, se
 sequence_entries(table::SequenceRuleSetTable) = SequenceEntry.(table.seq_rule_tables)
 sequence_entries(::Nothing) = nothing
 
-ContextualRule(table::SequenceContextTableFormat1) = ContextualRule(Coverage(table.coverage_table), sequence_entries.(table.seq_rule_set_tables), nothing, nothing, nothing, nothing)
-ContextualRule(table::SequenceContextTableFormat2) = ContextualRule(Coverage(table.coverage_table), nothing, sequence_entries.(table.class_seq_rule_set_tables), ClassDefinition(table.class_def_table), nothing, nothing)
-ContextualRule(table::SequenceContextTableFormat3) = ContextualRule(nothing, nothing, nothing, nothing, Coverage.(table.coverage_tables), sequence_rule.(table.seq_lookup_records))
+ContextualRule(table::SequenceContextTableFormat1) = ContextualRule(Coverage(table.coverage_table), sequence_entries.(table.seq_rule_set_tables), nothing, nothing, nothing)
+ContextualRule(table::SequenceContextTableFormat2) = ContextualRule(Coverage(table.coverage_table), nothing, sequence_entries.(table.class_seq_rule_set_tables), ClassDefinition(table.class_def_table), nothing)
+ContextualRule(table::SequenceContextTableFormat3) = ContextualRule(nothing, nothing, nothing, nothing, SequenceEntry(Coverage.(table.coverage_tables), sequence_rule.(table.seq_lookup_records)))
 
-ChainMatch(table::ChainedSequenceRuleTable) = ChainMatch(table.backtrack_sequence, table.input_sequence, table.lookahead_sequence, sequence_rule.(table.seq_lookup_records))
-ChainedSequenceEntry(table::ChainedSequenceRuleSetTable) = ChainedSequenceEntry(ChainMatch.(table.chained_seq_rule_tables))
-coverage_tables(tables) = Coverage.(tables)
-chained_sequence_entry(table) = isnothing(table) ? nothing : ChainedSequenceEntry(table)
+ChainedSequenceEntry(table::ChainedSequenceRuleTable) = ChainedSequenceEntry(table.backtrack_sequence, table.input_sequence, table.lookahead_sequence, sequence_rule.(table.seq_lookup_records))
+chained_sequence_entries(table::ChainedSequenceRuleSetTable) = ChainedSequenceEntry.(table.chained_seq_rule_tables)
+chained_sequence_entries(::Nothing) = nothing
 
-ChainedContextualRule(table::ChainedSequenceContextFormat1) = ChainedContextualRule(Coverage(table.coverage_table), chained_sequence_entry.(table.chained_seq_rule_set_tables), nothing, nothing, nothing, nothing)
-ChainedContextualRule(table::ChainedSequenceContextFormat2) = ChainedContextualRule(Coverage(table.coverage_table), nothing, chained_sequence_entry.(table.chained_class_seq_rule_set_tables), ClassDefinition.((table.backtrack_class_def_table, table.input_class_def_table, table.lookahead_class_def_table)), nothing, nothing)
-ChainedContextualRule(table::ChainedSequenceContextFormat3) = ChainedContextualRule(nothing, nothing, nothing, nothing, coverage_tables.((table.backtrack_coverage_tables, table.input_coverage_tables, table.lookahead_coverage_tables)), sequence_rule.(table.seq_lookup_records))
+ChainedContextualRule(table::ChainedSequenceContextFormat1) = ChainedContextualRule(Coverage(table.coverage_table), chained_sequence_entries.(table.chained_seq_rule_set_tables), nothing, nothing, nothing)
+ChainedContextualRule(table::ChainedSequenceContextFormat2) = ChainedContextualRule(Coverage(table.coverage_table), nothing, chained_sequence_entries.(table.chained_class_seq_rule_set_tables), ClassDefinition.((table.backtrack_class_def_table, table.input_class_def_table, table.lookahead_class_def_table)), nothing)
+ChainedContextualRule(table::ChainedSequenceContextFormat3) = ChainedContextualRule(nothing, nothing, nothing, nothing, ChainedSequenceEntry(Coverage.(table.backtrack_coverage_tables), Coverage.(table.input_coverage_tables), Coverage.(table.lookahead_coverage_tables), sequence_rule.(table.seq_lookup_records)))
 
 GlyphDefinition(gdef::GDEFHeader_1_0) = GlyphDefinition(isnothing(gdef.glyph_class_def_table) ? nothing : ClassDefinition(gdef.glyph_class_def_table))
 GlyphDefinition(gdef::GDEFHeader_1_2) = GlyphDefinition(isnothing(gdef.common.glyph_class_def_table) ? nothing : ClassDefinition(gdef.common.glyph_class_def_table))
