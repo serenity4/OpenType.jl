@@ -31,7 +31,7 @@ Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", of
 Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
 Base.:(+)(x::GlyphOffset, y::GlyphOffset) = GlyphOffset(x.origin + y.origin, x.advance + y.advance)
 
-apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}}, callback::Optional{Function}) = apply_positioning_rules!(glyph_offsets, gpos, gdef, glyphs, applicable_features(gpos, script_tag, language_tag, disabled_features), callback)
+apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, script_tag::Tag{4}, language_tag::Tag{4}, enabled_features::Set{Tag{4}}, disabled_features::Set{Tag{4}}, direction::Direction, callback::Optional{Function}) = apply_positioning_rules!(glyph_offsets, gpos, gdef, glyphs, applicable_features(gpos, script_tag, language_tag, enabled_features, disabled_features, direction), callback)
 
 function apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, features::Vector{Feature}, callback::Optional{Function})
   for feature in features

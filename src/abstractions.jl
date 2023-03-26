@@ -1,3 +1,17 @@
+"""
+Direction of a particular piece of text.
+
+This direction should be computed from the Unicode Character Database (UCD), using character metadata.
+"""
+@enum Direction::UInt8 begin
+  DIRECTION_LEFT_TO_RIGHT = 1
+  DIRECTION_RIGHT_TO_LEFT = 2
+  DIRECTION_TOP_TO_BOTTOM = 3
+  DIRECTION_BOTTOM_TO_TOP = 4
+end
+
+ishorizontal(direction::Direction) = direction in (DIRECTION_LEFT_TO_RIGHT, DIRECTION_RIGHT_TO_LEFT)
+
 struct Feature
   tag::Tag{4}
   lookup_indices::Vector{UInt16}
@@ -179,18 +193,25 @@ end
 "Common supertype for GPOS and GSUB abstractions, which share a script- and language-based selection of features to apply."
 abstract type LookupFeatureSet end
 
-function applicable_features(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}})
+const DEFAULT_FEATURES = Set([tag"abvm", tag"blwm", tag"ccmp", tag"locl", tag"mark", tag"mkmk", tag"rlig"])
+const HORIZONTAL_FEATURES = Set([tag"calt", tag"clig", tag"curs", tag"dist", tag"kern", tag"liga", tag"rclt"])
+const VERTICAL_FEATURES = Set([tag"vert"])
+
+function applicable_features(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, enabled_features::Set{Tag{4}}, disabled_features::Set{Tag{4}}, direction::Direction)
   language = language_system(script_tag, language_tag, fset.scripts)
   isnothing(language) && return Feature[]
   features = fset.features[language.feature_indices .+ 1]
-  filter!(x -> !in(x.tag, disabled_features), features)
+  default_features = union(DEFAULT_FEATURES, ishorizontal(direction) ? HORIZONTAL_FEATURES : VERTICAL_FEATURES) 
+  enabled_tags = setdiff!(default_features, disabled_features)
+  union!(enabled_tags, enabled_features)
+  filter!(x -> in(x.tag, enabled_tags), features)
   language.required_feature_index ≠ typemax(UInt16) && pushfirst!(features, fset.features[language.required_feature_index + 1])
   features
 end
 
 applicable_rules(fset::LookupFeatureSet, feature::Feature) = @view fset.rules[sort!(feature.lookup_indices .+ 1)]
 
-applicable_rules(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}} = Set{Tag{4}}()) = applicable_rules(fset::LookupFeatureSet, applicable_features(fset, script_tag, language_tag, disabled_features))
+applicable_rules(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, enabled_features, disabled_features, direction::Direction) = applicable_rules(fset::LookupFeatureSet, applicable_features(fset, script_tag, language_tag, enabled_features, disabled_features, direction))
 
 struct FeatureRule{T}
   type::T

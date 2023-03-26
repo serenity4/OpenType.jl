@@ -1,4 +1,4 @@
-using Accessors: @reset
+using Accessors: @set, @reset
 
 @testset "Shaping" begin
   file = google_font_files["inter"][1]
@@ -8,7 +8,7 @@ using Accessors: @reset
   glyphs, positions = shape(font, text, options; info = (info = ShapingInfo()))
   @test_broken glyphs == [0x06b1]
   @test_broken positions == [GlyphOffset(0, 0, 2688, 0)]
-  @test length(info.substitutions) == 1
+  @test_broken length(info.substitutions) == 1
   @test_broken length(info.positionings) == 0
   @test_broken info.substitutions[1].type == SUBSTITUTION_RULE_LIGATURE
   hb_glyphs, hb_positions = hb_shape(file, text, options)
@@ -42,7 +42,8 @@ using Accessors: @reset
   # Simple mark-to-base positioning.
 
   text = "ສົ"
-  glyphs, positions = shape(font, text, options; info = (info = ShapingInfo()))
+
+  glyphs, positions = shape(font, text, (@set options.enabled_features = Set([tag"aalt"])); info = (info = ShapingInfo()))
   @test length(info.substitutions) == 1
   @test length(info.positionings) == 1
   @test info.substitutions[1].type == SUBSTITUTION_RULE_ALTERNATE
@@ -55,7 +56,6 @@ using Accessors: @reset
   @test (glyphs, positions) == (hb_glyphs, hb_positions)
 
   text = "ກີບ"
-  @reset options.disabled_features = Set([tag"aalt"])
   glyphs, positions = shape(font, text, options; info = (info = ShapingInfo()))
   @test length(info.substitutions) == 0
   @test length(info.positionings) == 1

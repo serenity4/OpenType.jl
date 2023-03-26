@@ -1,15 +1,3 @@
-"""
-Direction of a particular piece of text.
-
-This direction should be computed from the Unicode Character Database (UCD), using character metadata.
-"""
-@enum Direction::UInt8 begin
-  DIRECTION_LEFT_TO_RIGHT = 1
-  DIRECTION_RIGHT_TO_LEFT = 2
-  DIRECTION_TOP_TO_BOTTOM = 3
-  DIRECTION_BOTTOM_TO_TOP = 4
-end
-
 function horizontal_metric(hmtx::HorizontalMetrics, glyph::GlyphID)
   (; metrics, left_side_bearings) = hmtx
   i = glyph + 1
@@ -25,7 +13,7 @@ function vertical_metric(vtmx::VerticalMetrics, glyph::GlyphID)
 end
 
 function metric_offset(font::OpenTypeFont, glyph::GlyphID, direction::Direction)
-  if direction == DIRECTION_LEFT_TO_RIGHT || direction == DIRECTION_RIGHT_TO_LEFT
+  if ishorizontal(direction)
     !isnothing(font.hmtx) || error("No horizontal metrics present for the provided font.")
     metric = horizontal_metric(font.hmtx, glyph)
     GlyphOffset(Point(0, 0), Point(metric.advance_width, 0))
@@ -48,10 +36,11 @@ struct ShapingOptions
   "ISO-639-1, ISO-639-3 or OpenType language tag."
   language::Union{Tag{2},Tag{3},Tag{4}}
   direction::Direction
+  enabled_features::Set{Tag{4}}
   disabled_features::Set{Tag{4}}
 end
 
-ShapingOptions(script, language, direction::Direction = DIRECTION_LEFT_TO_RIGHT; disabled_features = Tag{4}[]) = ShapingOptions(script, language, direction, Set(@something(disabled_features, Tag{4}[])))
+ShapingOptions(script, language, direction::Direction = DIRECTION_LEFT_TO_RIGHT; enabled_features = Tag{4}[], disabled_features = Tag{4}[]) = ShapingOptions(script, language, direction, Set(@something(enabled_features, Tag{4}[])), Set(@something(disabled_features, Tag{4}[])))
 
 struct SubstitutionInfo
   feature::Tag{4}
@@ -99,13 +88,13 @@ function shape(font::OpenTypeFont, chars::AbstractVector{Char}, options::Shaping
 
   # Glyph substitution.
   callback = isnothing(info) ? nothing : (args...) -> record_substitution!(info, args...)
-  apply_substitution_rules!(glyph_ids, font.gsub, font.gdef, options.script, options.language, options.disabled_features, (glyph, alts) -> glyph, callback)
+  apply_substitution_rules!(glyph_ids, font.gsub, font.gdef, options.script, options.language, options.enabled_features, options.disabled_features, options.direction, (glyph, alts) -> glyph, callback)
 
   # Glyph positioning.
   offsets = zeros(GlyphOffset, length(glyph_ids))
   compute_advances!(offsets, font, glyph_ids, options.direction)
   callback = isnothing(info) ? nothing : (args...) -> record_positioning!(info, args...)
-  apply_positioning_rules!(offsets, font.gpos, font.gdef, glyph_ids, options.script, options.language, options.disabled_features, callback)
+  apply_positioning_rules!(offsets, font.gpos, font.gdef, glyph_ids, options.script, options.language, options.enabled_features, options.disabled_features, options.direction, callback)
 
   glyph_ids, offsets
 end

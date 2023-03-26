@@ -16,7 +16,7 @@ struct GlyphSubstitution <: LookupFeatureSet
   rules::Vector{SubstitutionRule}
 end
 
-apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, script_tag::Tag{4}, language_tag::Tag{4}, disabled_features::Set{Tag{4}}, choose_alternate::Function, callback::Optional{Function}) = apply_substitution_rules!(glyphs, gsub, gdef, applicable_features(gsub, script_tag, language_tag, disabled_features), choose_alternate, callback)
+apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, script_tag::Tag{4}, language_tag::Tag{4}, enabled_features::Set{Tag{4}}, disabled_features::Set{Tag{4}}, direction::Direction, choose_alternate::Function, callback::Optional{Function}) = apply_substitution_rules!(glyphs, gsub, gdef, applicable_features(gsub, script_tag, language_tag, enabled_features, disabled_features, direction), choose_alternate, callback)
 
 function apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, features::Vector{Feature}, choose_alternate::Function, callback::Optional{Function})
   for feature in features
