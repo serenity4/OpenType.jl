@@ -3,7 +3,7 @@ using Accessors: @set, @reset
 @testset "Shaping" begin
   file = google_font_files["inter"][1]
   font = OpenTypeFont(file);
-  options = ShapingOptions(tag"latn", tag"fra "; disabled_features = Set([tag"aalt", tag"case", tag"subs", tag"dnom", tag"numr"]))
+  options = ShapingOptions(tag"latn", tag"fra ")
   text = "=>"
   glyphs, positions = shape(font, text, options; info = (info = ShapingInfo()))
   @test_broken glyphs == [0x06b1]
