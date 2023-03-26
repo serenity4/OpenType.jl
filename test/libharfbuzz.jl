@@ -3,8 +3,21 @@ using HarfBuzz_jll: libharfbuzz
 struct hb_feature_t
   tag::UInt32
   value::UInt32
-  start::UInt16
-  _end::UInt16
+  start::UInt32
+  _end::UInt32
+end
+
+function hb_feature_t(tag::OpenType.Tag{4}, enabled::Bool)
+  tag = @ccall libharfbuzz.hb_tag_from_string(string(tag)::Cstring, (-1)::Cint)::UInt32
+  hb_feature_t(tag, enabled, 0, typemax(UInt32))
+end
+
+function Base.show(io::IO, feature::hb_feature_t)
+  buff = zeros(Cchar, 128)
+  @ccall libharfbuzz.hb_feature_to_string(Ref(feature)::Ptr{hb_feature_t}, buff::Ptr{Cchar}, 128::Cuint)::Cvoid
+  GC.@preserve buff begin
+    print(io, unsafe_string(pointer(buff)))
+  end
 end
 
 struct hb_glyph_info_t
@@ -47,7 +60,8 @@ function hb_shape(font_file::AbstractString, text::AbstractString, options::Shap
   @ccall libharfbuzz.hb_buffer_set_script(buffer::Ptr{Nothing}, script::UInt32)::Ptr{Nothing}
   @ccall libharfbuzz.hb_buffer_set_language(buffer::Ptr{Nothing}, language::UInt32)::Ptr{Nothing}
 
-  @ccall libharfbuzz.hb_shape(font::Ptr{Nothing}, buffer::Ptr{Nothing}, C_NULL::Ptr{hb_feature_t}, 0::UInt16)::Ptr{Nothing}
+  user_features = [hb_feature_t.(options.enabled_features, true); hb_feature_t.(options.disabled_features, false)]
+  @ccall libharfbuzz.hb_shape(font::Ptr{Nothing}, buffer::Ptr{Nothing}, user_features::Ptr{hb_feature_t}, length(user_features)::UInt16)::Ptr{Nothing}
 
   glyph_count = Ref{UInt16}(0)
   glyph_info_ptr = @ccall libharfbuzz.hb_buffer_get_glyph_infos(buffer::Ptr{Nothing}, glyph_count::Ptr{UInt16})::Ptr{hb_glyph_info_t}

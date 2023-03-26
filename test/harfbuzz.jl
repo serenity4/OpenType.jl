@@ -12,4 +12,18 @@ using GeometryExperiments: Point
   options = ShapingOptions(tag"lao ", tag"dflt")
   glyphs, positions = hb_shape(file, "\ue99\ueb5\uec9", options)
   @test length(positions) == length(glyphs) == 3
-end
+
+  feature = hb_feature_t(tag4"liga", true)
+  @test string(feature) == "liga"
+  feature = hb_feature_t(tag4"liga", false)
+  @test string(feature) == "-liga"
+
+  # Feature selection. "calt" is enabled by default, which substitutes => with a single glyph.
+  file = google_font_files["inter"][1]
+  options = ShapingOptions(tag"latn", tag"FRA ")
+  glyphs, positions = hb_shape(file, "=>", options)
+  @test length(glyphs) == 1
+  options = ShapingOptions(tag"latn", tag"FRA "; disabled_features = [tag4"calt"])
+  glyphs, positions = hb_shape(file, "=>", options)
+  @test length(glyphs) == 2
+end;

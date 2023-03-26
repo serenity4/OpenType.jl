@@ -96,4 +96,4 @@ using Accessors: @set, @reset
   # res = hb_shape(file, "ल\u094dल", options)
   # res = shape(font, "\u0939\u093f\u0928\u094d\u0926\u0940", options)
   # expected = "हिन्दी"
-end
+end;
