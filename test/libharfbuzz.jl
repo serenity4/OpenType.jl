@@ -7,7 +7,7 @@ struct hb_feature_t
   _end::UInt32
 end
 
-function hb_feature_t(tag::OpenType.Tag{4}, enabled::Bool)
+function hb_feature_t(tag::Tag4, enabled::Bool)
   tag = @ccall libharfbuzz.hb_tag_from_string(string(tag)::Cstring, (-1)::Cint)::UInt32
   hb_feature_t(tag, enabled, 0, typemax(UInt32))
 end

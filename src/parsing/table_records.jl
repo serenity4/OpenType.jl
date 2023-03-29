@@ -1,5 +1,5 @@
 @serializable struct TableRecord
-    tag::Tag{4}
+    tag::Tag4
     checksum::UInt32
     offset::UInt32
     length::UInt32
@@ -55,7 +55,7 @@ function checksum(io::IO, tr::TableRecord)
 end
 
 struct TableNavigationMap
-    map::Dict{Tag{4},TableRecord}
+    map::Dict{Tag4,TableRecord}
 end
 
 TableNavigationMap(records::Vector{TableRecord}) = TableNavigationMap(Dict(rec.tag => rec for rec in records))
@@ -78,7 +78,7 @@ end
 Base.getindex(nav::TableNavigationMap, key) = nav.map[key]
 Base.get(nav::TableNavigationMap, key, default) = get(nav.map, key, default)
 
-function read_table(f, io::IO, nav::TableNavigationMap, table::Tag{4}; kwargs...)
+function read_table(f, io::IO, nav::TableNavigationMap, table::Tag4; kwargs...)
     record = get(nav, table, nothing)
     if isnothing(record)
         table in REQUIRED_TABLES && error_invalid_font(

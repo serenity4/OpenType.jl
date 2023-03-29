@@ -32,18 +32,18 @@ end
 
 struct ShapingOptions
   "OpenType or ISO-15924 script tag."
-  script::Tag{4}
+  script::Tag4
   "ISO-639-1, ISO-639-3 or OpenType language tag."
-  language::Union{Tag{2},Tag{3},Tag{4}}
+  language::Union{Tag2,Tag3,Tag4}
   direction::Direction
-  enabled_features::Set{Tag{4}}
-  disabled_features::Set{Tag{4}}
+  enabled_features::Set{Tag4}
+  disabled_features::Set{Tag4}
 end
 
-ShapingOptions(script, language, direction::Direction = DIRECTION_LEFT_TO_RIGHT; enabled_features = Tag{4}[], disabled_features = Tag{4}[]) = ShapingOptions(script, language, direction, Set(@something(enabled_features, Tag{4}[])), Set(@something(disabled_features, Tag{4}[])))
+ShapingOptions(script, language, direction::Direction = DIRECTION_LEFT_TO_RIGHT; enabled_features = Tag4[], disabled_features = Tag4[]) = ShapingOptions(script, language, direction, Set(@something(enabled_features, Tag4[])), Set(@something(disabled_features, Tag4[])))
 
 struct SubstitutionInfo
-  feature::Tag{4}
+  feature::Tag4
   type::SubstitutionRuleType
   replacement::Optional{Pair{Union{GlyphID, Vector{GlyphID}}, Union{GlyphID, Vector{GlyphID}}}}
   index::Int
@@ -52,7 +52,7 @@ struct SubstitutionInfo
 end
 
 struct PositioningInfo
-  feature::Tag{4}
+  feature::Tag4
   type::PositioningRuleType
   offsets::Pair{Union{GlyphID, Vector{GlyphID}}, Union{GlyphOffset, Vector{GlyphOffset}}}
   index::Int

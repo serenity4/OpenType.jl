@@ -13,23 +13,23 @@ end
 ishorizontal(direction::Direction) = direction in (DIRECTION_LEFT_TO_RIGHT, DIRECTION_RIGHT_TO_LEFT)
 
 struct Feature
-  tag::Tag{4}
+  tag::Tag4
   lookup_indices::Vector{UInt16}
 end
 
 struct LanguageSystem
-  tag::Tag{4}
+  tag::Tag4
   required_feature_index::UInt16
   feature_indices::Vector{UInt16}
 end
 
 struct Script
-  tag::Tag{4}
+  tag::Tag4
   languages::Vector{LanguageSystem}
   default_language::Optional{LanguageSystem}
 end
 
-function language_system(script_tag::Tag{4}, language_tag::Tag{4}, scripts::Dict{Tag{4},Script})
+function language_system(script_tag::Tag4, language_tag::Tag4, scripts::Dict{Tag4,Script})
   script = get(scripts, script_tag, nothing)
   isnothing(script) && error("Script '$script_tag' not found.")
   language_idx = findfirst(x -> x.tag == language_tag, script.languages)
@@ -197,7 +197,7 @@ const DEFAULT_FEATURES = Set([tag"abvm", tag"blwm", tag"ccmp", tag"locl", tag"ma
 const HORIZONTAL_FEATURES = Set([tag"calt", tag"clig", tag"curs", tag"dist", tag"kern", tag"liga", tag"rclt"])
 const VERTICAL_FEATURES = Set([tag"vert"])
 
-function applicable_features(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, enabled_features::Set{Tag{4}}, disabled_features::Set{Tag{4}}, direction::Direction)
+function applicable_features(fset::LookupFeatureSet, script_tag::Tag4, language_tag::Tag4, enabled_features::Set{Tag4}, disabled_features::Set{Tag4}, direction::Direction)
   language = language_system(script_tag, language_tag, fset.scripts)
   isnothing(language) && return Feature[]
   features = fset.features[language.feature_indices .+ 1]
@@ -211,7 +211,7 @@ end
 
 applicable_rules(fset::LookupFeatureSet, feature::Feature) = @view fset.rules[sort!(feature.lookup_indices .+ 1)]
 
-applicable_rules(fset::LookupFeatureSet, script_tag::Tag{4}, language_tag::Tag{4}, enabled_features, disabled_features, direction::Direction) = applicable_rules(fset::LookupFeatureSet, applicable_features(fset, script_tag, language_tag, enabled_features, disabled_features, direction))
+applicable_rules(fset::LookupFeatureSet, script_tag::Tag4, language_tag::Tag4, enabled_features, disabled_features, direction::Direction) = applicable_rules(fset::LookupFeatureSet, applicable_features(fset, script_tag, language_tag, enabled_features, disabled_features, direction))
 
 struct FeatureRule{T}
   type::T

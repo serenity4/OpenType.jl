@@ -1,16 +1,16 @@
 using OpenType
-using OpenType: Tag, find_language_tag, find_script_tag
+using OpenType: find_language_tag, find_script_tag
 using Test
 
 @testset "Tags" begin
   t = Tag("FRA ")
-  @test isa(t, Tag{4})
+  @test isa(t, Tag4)
   @test convert(Tag, "FRA ") === t
-  @test convert(Tag{4}, "FRA ") === t
+  @test convert(Tag4, "FRA ") === t
   @test tag"FRA " === t
   @test tag"FRA" !== tag"FRA "
-  @test isa(tag"FRA", Tag{3})
-  @test_throws "4-character" Tag{4}("FRA")
+  @test isa(tag"FRA", Tag3)
+  @test_throws "4-character" Tag4("FRA")
   @test_throws "ASCII" Tag("FRAα")
   @test uppercase(tag"fr") === tag"FR"
   @test lowercase(tag"FR") === tag"fr"

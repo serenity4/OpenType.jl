@@ -11,7 +11,7 @@ end
 
 @serializable struct LangSysRecord
     @arg script_table_origin
-    lang_sys_tag::Tag{4}
+    lang_sys_tag::Tag4
     lang_sys_offset::UInt16
     lang_sys_table::LangSysTable << read_at(io, LangSysTable, lang_sys_offset; start = script_table_origin)
 end
@@ -25,7 +25,7 @@ end
 
 @serializable struct ScriptRecord
     @arg script_list_table_origin
-    script_tag::Tag{4}
+    script_tag::Tag4
     script_offset::UInt16
     script_table::ScriptTable << read_at(io, ScriptTable, script_offset; start = script_list_table_origin)
 end

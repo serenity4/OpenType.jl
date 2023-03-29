@@ -33,7 +33,7 @@ end
 end
 
 @serializable struct VariationAxisRecord
-    tag::Tag{4}
+    tag::Tag4
     min_value::Fixed
     default_value::Fixed
     max_value::Fixed

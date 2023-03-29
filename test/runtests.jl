@@ -1,4 +1,5 @@
 using OpenType, Test
+using OpenType: Tag, Tag2, Tag3, Tag4
 
 include("utils.jl")
 include("libharfbuzz.jl")

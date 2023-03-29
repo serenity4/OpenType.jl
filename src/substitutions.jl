@@ -11,12 +11,12 @@ end
 const SubstitutionRule = FeatureRule{SubstitutionRuleType}
 
 struct GlyphSubstitution <: LookupFeatureSet
-  scripts::Dict{Tag{4},Script}
+  scripts::Dict{Tag4,Script}
   features::Vector{Feature}
   rules::Vector{SubstitutionRule}
 end
 
-apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, script_tag::Tag{4}, language_tag::Tag{4}, enabled_features::Set{Tag{4}}, disabled_features::Set{Tag{4}}, direction::Direction, choose_alternate::Function, callback::Optional{Function}) = apply_substitution_rules!(glyphs, gsub, gdef, applicable_features(gsub, script_tag, language_tag, enabled_features, disabled_features, direction), choose_alternate, callback)
+apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, script_tag::Tag4, language_tag::Tag4, enabled_features::Set{Tag4}, disabled_features::Set{Tag4}, direction::Direction, choose_alternate::Function, callback::Optional{Function}) = apply_substitution_rules!(glyphs, gsub, gdef, applicable_features(gsub, script_tag, language_tag, enabled_features, disabled_features, direction), choose_alternate, callback)
 
 function apply_substitution_rules!(glyphs::AbstractVector{GlyphID}, gsub::GlyphSubstitution, gdef::Optional{GlyphDefinition}, features::Vector{Feature}, choose_alternate::Function, callback::Optional{Function})
   for feature in features

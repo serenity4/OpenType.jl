@@ -6,7 +6,7 @@ end
 
 @serializable struct FeatureRecord
     @arg feature_list_table_origin
-    feature_tag::Tag{4}
+    feature_tag::Tag4
     feature_offset::UInt16
     feature_table::FeatureTable << read_at(io, FeatureTable, feature_offset; start = feature_list_table_origin)
 end
