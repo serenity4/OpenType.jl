@@ -6,6 +6,7 @@ include("libharfbuzz.jl")
 
 @testset "OpenType.jl" begin
     include("tags.jl")
+    include("scripts.jl")
     include("glyphs.jl")
     include("google_fonts.jl")
     include("harfbuzz.jl")
