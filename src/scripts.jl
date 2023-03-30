@@ -9,7 +9,7 @@ end
 
 include("generated/scripts.jl")
 
-function find_primary_script(codepoint::UInt32, recently_used::Vector{Tag4})
+function find_primary_script(codepoint::UInt32, recently_used::Vector{Tag4} = Tag4[])
   for script in recently_used
     entry = primary_scripts[script]
     in(codepoint, entry) && return script
@@ -18,25 +18,32 @@ function find_primary_script(codepoint::UInt32, recently_used::Vector{Tag4})
     in(script, recently_used) && continue
     in(codepoint, entry) && return script
   end
+  error("Could not determine the primary script of character $(repr(chars[i]))")
 end
 
 function find_script(chars, i, recently_used::Vector{Tag4})
   codepoint = Base.codepoint(chars[i])
   script = find_primary_script(codepoint, recently_used)
-  if script == tag"zyyy"
-    scripts = secondary_scripts[codepoint]
-    length(scripts) == 1 && return @inbounds scripts[1]
-    # If we have multiple choices, use surrounding chars to try to guess which one to take.
-    prev = find_script(chars, pick_previous_char(chars, i), recently_used)
-    in(prev, scripts) && return prev
-    next = find_script(chars, pick_next_char(chars, i), recently_used)
-    in(next, scripts) && return next
-    recent = findfirst(in(recently_used), scripts)
-    !isnothing(recent) && return scripts[recent]
-    # Just pick the first script if we really can't figure it out.
-    return scripts[1]
-  elseif script == tag"zinh"
-    return find_script(chars, pick_neighboring_char(chars, i), recently_used)
+  script == tag"zinh" && return i == firstindex(chars) ? script : find_script(chars, i - 1, recently_used)
+  script ≠ tag"zyyy" && return script
+  scripts = get(secondary_scripts, codepoint, nothing)
+  if isnothing(scripts)
+    i == firstindex(chars) && return script
+    return find_script(chars, i - 1, recently_used)
   end
-  error("Could not find script for codepoint $(repr(codepoint))")
+  length(scripts) == 1 && return @inbounds scripts[1]
+  # If we have multiple choices, use surrounding chars to try to guess which one to take.
+  if i ≠ firstindex(chars)
+    prev = find_script(chars, i - 1, recently_used)
+    in(prev, scripts) && return prev
+  end
+  if i ≠ lastindex(chars)
+    # Look only for the primary script to avoid recursing forever if looking up surrounding characters is needed then.
+    next = find_primary_script(chars[i + 1], recently_used)
+    in(next, scripts) && return next
+  end
+  recent = findfirst(in(recently_used), scripts)
+  !isnothing(recent) && return scripts[recent]
+  # Just pick the first script if we really can't figure it out.
+  scripts[1]
 end
