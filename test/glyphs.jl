@@ -1,6 +1,8 @@
 using OpenType
 using OpenType: OpenTypeData, GlyphPointInfo, GlyphHeader, extract_points
 using GeometryExperiments
+using StaticArrays
+using LinearAlgebra
 
 @testset "Glyphs" begin
   data = load_font("juliamono")
@@ -62,9 +64,22 @@ using GeometryExperiments
           @test all(0 .≤ point .≤ 1)
         end
       end
+      norm_outlines = OpenType.normalize(outlines, font)
+      @test isa(norm_outlines, Vector{Vector{Point2}})
 
+      # Coordinate system is in (integer) font units.
       curves = OpenType.curves(glyph)
+      @test isa(curves, Vector{SVector{3,Point2}})
       @test all(length(curve) == 3 for curve in curves)
+      mi, ma = extrema(maximum.(broadcast.(norm, curves)))
+      @test 300 < mi < 400 && 800 < ma < 900
+
+      # Coordinate system is normalized within a glyph bounding box.
+      curves = OpenType.curves_normalized(glyph)
+      @test isa(curves, Vector{SVector{3,Point2}})
+      @test all(length(curve) == 3 for curve in curves)
+      mi, ma = extrema(maximum.(broadcast.(norm, curves)))
+      @test 0.4 < mi < 0.5 && 1.3 < ma < 1.4
     end
   end
 

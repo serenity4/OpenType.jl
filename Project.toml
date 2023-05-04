@@ -9,6 +9,7 @@ BitMasks = "a3e06817-fd65-4797-8291-16f435bc2529"
 ColorTypes = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 GeometryExperiments = "1147bd75-18e1-436d-adda-d58e854f897d"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 SwapStreams = "0b152c4a-7e29-418b-9258-223db38db9d9"
 
 [compat]
@@ -16,7 +17,8 @@ julia = "1.7"
 
 [extras]
 HarfBuzz_jll = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["HarfBuzz_jll", "Test"]
+test = ["HarfBuzz_jll", "Test", "LinearAlgebra"]

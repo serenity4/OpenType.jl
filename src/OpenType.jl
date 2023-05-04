@@ -7,6 +7,7 @@ using ColorTypes: RGBA
 using Accessors: @set, setproperties
 using .Meta: isexpr
 using BitMasks
+using StaticArrays
 
 "0-based glyph identifier, often used as index with relevant data structures."
 const GlyphID = UInt16

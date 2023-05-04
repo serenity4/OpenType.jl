@@ -151,7 +151,11 @@ Return a list of quadratic Bézier curves corresponding to the glyph's outlines.
 """
 function curves(outlines)
     patch = Patch(BezierCurve(), 3)
-    [[split(outline, patch) for outline in outlines]...;]
+    curves = SVector{3,Point2}[]
+    for outline in outlines
+        append!(curves, split(outline, patch))
+    end
+    curves
 end
 
 curves(glyph::SimpleGlyph) = curves(glyph.outlines)
