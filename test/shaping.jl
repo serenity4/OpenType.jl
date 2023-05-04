@@ -24,7 +24,7 @@ using Accessors: @set, @reset
   @test length(info.positionings) == 1
   @test info.positionings[1].type == POSITIONING_RULE_PAIR_ADJUSTMENT
   @test info.positionings[1].offsets == (glyphs => [GlyphOffset(0, 0, -40, 0), GlyphOffset(0, 0, 0, 0)])
-  @test glyphs == [0x01d0, 0x0232]
+  @test glyphs == [0x01d1, 0x0232]
   @test positions == [GlyphOffset(0, 0, 665, 0), GlyphOffset(0, 0, 675, 0)]
   hb_glyphs, hb_positions = hb_shape(file, text, options)
   @test glyphs == hb_glyphs

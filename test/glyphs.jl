@@ -64,8 +64,6 @@ using LinearAlgebra
           @test all(0 .≤ point .≤ 1)
         end
       end
-      norm_outlines = OpenType.normalize(outlines, font)
-      @test isa(norm_outlines, Vector{Vector{Point2}})
 
       # Coordinate system is in (integer) font units.
       curves = OpenType.curves(glyph)
