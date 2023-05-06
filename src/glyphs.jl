@@ -159,4 +159,5 @@ function curves(outlines)
 end
 
 curves(glyph::SimpleGlyph) = curves(glyph.outlines)
+curves(glyph::CompositeGlyph) = error("Composite glyphs are not supported yet.")
 curves_normalized(glyph::SimpleGlyph) = curves(normalize(glyph.outlines, glyph.header))

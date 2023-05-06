@@ -88,7 +88,6 @@ function compute_runs(line::SplitLine, fonts::AbstractVector{Pair{OpenTypeFont, 
   runs = TextRun[]
   scripts = assign_scripts(line.chars)
   (start, last_script, last_style, last_font) = (1, scripts[1], 1, 1)
-  i = 1
   for (i, char) in enumerate(line.chars)
     script = scripts[i]
     style_index = findlast(≤(i + line.text_offset) ∘ first, line.text_style_changes)
@@ -97,8 +96,9 @@ function compute_runs(line::SplitLine, fonts::AbstractVector{Pair{OpenTypeFont, 
     font_index = something(findfirst(font -> has_font_coverage(char, font[1]), fonts), 1)
     script == last_script && style_index == last_style && font_index == last_font && i ≠ lastindex(line.chars) && continue
     (font, font_options) = fonts[last_font]
-    _, style = line.text_style_changes[last_style + line.text_offset]
-    push!(runs, TextRun(start:(i - 1), font, font_options, style, last_script))
+    _, style = line.text_style_changes[style_index]
+    stop = i == lastindex(line.chars) ? i : i - 1
+    push!(runs, TextRun(start:stop, font, font_options, style, last_script))
     (start, last_script, last_style, last_font) = (i, script, style_index, font_index)
   end
   runs
@@ -127,8 +127,19 @@ end
 
 Base.show(io::IO, line::Line) = print(io, Line, '(', length(line.glyphs), " glyphs, ", length(line.segments), " segments)")
 
-# TODO: Implement a line-splitting strategy.
-split_lines(text::Text) = [SplitLine(text.chars, 0, text.style_changes)]
+function split_lines(text::Text)
+  newlines = findall(==('\n'), text.chars)
+  push!(newlines, 1 + lastindex(text.chars))
+  lines = SplitLine[]
+  prev = 0
+  for i in newlines
+    range = (prev + 1):(i - 1)
+    prev = i
+    isempty(range) && continue
+    push!(lines, SplitLine(text.chars[range], range.start, text.style_changes))
+  end
+  lines
+end
 
 function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}})
   lines = Line[]
