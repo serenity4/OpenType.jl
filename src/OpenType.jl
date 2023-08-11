@@ -3,6 +3,7 @@ module OpenType
 using Dates
 using SwapStreams
 using GeometryExperiments
+using GeometryExperiments: decompactify
 using ColorTypes: RGBA
 using Accessors: @set, setproperties
 using .Meta: isexpr

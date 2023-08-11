@@ -153,8 +153,9 @@ function curves(outlines)
     curves = SVector{3,Point2}[]
     for outline in outlines
         patch = Patch{BezierCurve,3}(outline)
+        patch = decompactify(patch)
         for curve in patch
-            append!(curves, curve.points)
+            push!(curves, curve.points)
         end
     end
     curves
