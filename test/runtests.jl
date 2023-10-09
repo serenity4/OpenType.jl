@@ -1,5 +1,7 @@
 using OpenType, Test
 using OpenType: Tag, Tag2, Tag3, Tag4, Text, lines
+using Accessors: @set, @reset
+using HarfBuzz_jll: libharfbuzz
 
 include("utils.jl")
 include("libharfbuzz.jl")

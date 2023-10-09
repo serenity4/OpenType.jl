@@ -1,5 +1,3 @@
-using HarfBuzz_jll: libharfbuzz
-
 struct hb_feature_t
   tag::UInt32
   value::UInt32

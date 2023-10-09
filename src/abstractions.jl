@@ -31,7 +31,10 @@ end
 
 function language_system(script_tag::Tag4, language_tag::Tag4, scripts::Dict{Tag4,Script})
   script = get(scripts, script_tag, nothing)
-  isnothing(script) && error("Script '$script_tag' not found.")
+  if isnothing(script)
+    script = get(scripts, tag"DFLT", nothing)
+    isnothing(script) && return nothing
+  end
   language_idx = findfirst(x -> x.tag == language_tag, script.languages)
   !isnothing(language_idx) && return script.languages[language_idx]
   !isnothing(script.default_language) && return script.default_language

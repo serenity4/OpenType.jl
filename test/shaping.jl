@@ -1,10 +1,12 @@
-using Accessors: @set, @reset
-
 @testset "Shaping" begin
   file = google_font_files["inter"][1]
   font = OpenTypeFont(file);
-  options = ShapingOptions(tag"latn", tag"fra ")
   text = "=>"
+  # A (likely) non-existing script should provide no features, but never error.
+  options = ShapingOptions(tag"blop", tag"blip")
+  glyphs, positions = shape(font, text, options; info = (info = ShapingInfo()))
+  @test isa(glyphs, Vector{GlyphID}) && isa(positions, Vector{GlyphOffset})
+  options = ShapingOptions(tag"latn", tag"fra ")
   glyphs, positions = shape(font, text, options; info = (info = ShapingInfo()))
   @test_broken glyphs == [0x06b1]
   @test_broken positions == [GlyphOffset(0, 0, 2688, 0)]
