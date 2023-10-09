@@ -14,6 +14,7 @@ SwapStreams = "0b152c4a-7e29-418b-9258-223db38db9d9"
 
 [compat]
 GeometryExperiments = "0.3"
+SwapStreams = "0.1"
 julia = "1.7"
 
 [extras]
