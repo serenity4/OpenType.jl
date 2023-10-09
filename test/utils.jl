@@ -16,9 +16,15 @@ const google_fonts_repo = joinpath(@__DIR__, "google_fonts")
 const FontFamily = String
 
 function retrieve_google_font_files()
-  if !ispath(google_fonts_repo)
+  if !isdir(google_fonts_repo)
     @info "Getting fonts from Google Fonts, this may take a while..."
-    run(`git clone https://github.com/google/fonts --depth=1 $google_fonts_repo`)
+    mkdir(google_fonts_repo)
+    cd(google_fonts_repo) do
+      run(`git init`)
+      run(`git remote add origin https://github.com/google/fonts`)
+      run(`git fetch --depth=1 origin 47a6c224b3e0287b2e48e3ffef8c9ce2ca4931f4`)
+      run(`git checkout FETCH_HEAD`)
+    end
   end
 
   google_font_files = Dict{FontFamily,Vector{String}}()
