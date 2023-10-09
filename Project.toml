@@ -13,7 +13,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 SwapStreams = "0b152c4a-7e29-418b-9258-223db38db9d9"
 
 [compat]
-GeometryExperiments = "0.3"
+GeometryExperiments = "0.4"
 SwapStreams = "0.2"
 julia = "1.9"
 

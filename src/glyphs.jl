@@ -140,8 +140,8 @@ end
 function normalize(outlines, header::GlyphHeader)
     min = Point(header.xmin, header.ymin)
     max = Point(header.xmax, header.ymax)
-    from = box(min, max)
-    to = box(Point{2,Int16}(0, 0), Point{2,Int16}(1, 1))
+    from = Box(min, max)
+    to = Box(Point{2,Int16}(0, 0), Point{2,Int16}(1, 1))
     transf = BoxTransform(from, to)
     map(points -> transf.(points), outlines)
 end
