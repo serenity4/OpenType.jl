@@ -15,7 +15,7 @@ SwapStreams = "0b152c4a-7e29-418b-9258-223db38db9d9"
 [compat]
 GeometryExperiments = "0.3"
 SwapStreams = "0.2"
-julia = "1.7"
+julia = "1.9"
 
 [extras]
 HarfBuzz_jll = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
