@@ -10,6 +10,8 @@ using .Meta: isexpr
 using BitMasks
 using StaticArrays
 
+import GeometryExperiments: boundingelement
+
 "0-based glyph identifier, often used as index with relevant data structures."
 const GlyphID = UInt16
 const GlyphIDOffset = Int16
@@ -44,8 +46,8 @@ export GlyphID,
   GlyphOffset,
   OpenTypeData,
   OpenTypeFont,
-  FontOptions,
-  TextOptions,
+  FontSize, FontOptions,
+  TextLimits, TextOptions,
   text_glyphs,
 
   @tag_str,

@@ -7,6 +7,8 @@ struct SimpleGlyph
     header::GlyphHeader
 end
 
+boundingelement(glyph::SimpleGlyph) = boundingelement(PointSet(outline) for outline in glyph.outlines)
+
 Base.show(io::IO, glyph::SimpleGlyph) = print(io, SimpleGlyph, "(", glyph.id, ", ", length(glyph.outlines), " outlines)")
 
 struct CompositeGlyphComponent

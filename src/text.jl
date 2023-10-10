@@ -7,17 +7,72 @@ struct CharacterStyle
   size::Float64
 end
 
+@enum FontSizeSpec::UInt8 begin
+  FONT_SIZE_FIXED
+  FONT_SIZE_MUST_FIT
+  FONT_SIZE_FILL_AVAILABLE
+end
+
+"""
+    FontSize(value::Real; reduce_to_fit::Bool = true) # ideal value provided, may be reduced to fit if allowed
+    FontSize(value::Nothing; kwargs...) # will fill available space
+    FontSize() # will fill available space
+
+Specify how the font should be sized.
+"""
+struct FontSize
+  value::Float64
+  type::FontSizeSpec
+end
+
+FontSize() = FontSize(0.0, FONT_SIZE_FILL_AVAILABLE)
+FontSize(::Nothing; kwargs...) = FontSize()
+FontSize(value::Real; reduce_to_fit::Bool = true) = FontSize(value, reduce_to_fit ? FONT_SIZE_MUST_FIT : FONT_SIZE_FIXED)
+
+function Base.show(io::IO, ::MIME"text/plain", size::FontSize)
+  print(io, FontSize, '(')
+  size.type == FONT_SIZE_FIXED && print(io, size.value)
+  size.type == FONT_SIZE_MUST_FIT && print(io, size.value, ", may be reduced to fit")
+  size.type == FONT_SIZE_FILL_AVAILABLE && print(io, "fill available space")
+  print(io, ')')
+end
+
 struct FontOptions
   shaping_options::ShapingOptions
-  font_size::Float64
+  font_size::FontSize
   variable_coordinates::Vector{Any}
 end
 
-FontOptions(shaping_options, font_size) = FontOptions(shaping_options, font_size, [])
+FontOptions(shaping_options::ShapingOptions, font_size::FontSize) = FontOptions(shaping_options, font_size, [])
+FontOptions(shaping_options::ShapingOptions, font_size::Real) = FontOptions(shaping_options, FontSize(font_size))
+
+@enum TextLimitsSpec::UInt8 begin
+  TEXT_LIMITS_NONE
+  TEXT_LIMITS_WIDTH_FIXED
+  TEXT_LIMITS_FIXED
+end
+
+struct TextLimits
+  width::Float64
+  height::Float64
+  type::TextLimitsSpec
+end
+
+TextLimits() = TextLimits(0.0, 0.0, TEXT_LIMITS_NONE)
+TextLimits(width::Real) = TextLimits(width, 0.0, TEXT_LIMITS_WIDTH_FIXED)
+TextLimits(width::Real, height::Real) = TextLimits(width, height, TEXT_LIMITS_FIXED)
+
+function Base.show(io::IO, ::MIME"text/plain", limits::TextLimits)
+  print(io, TextLimits, '(')
+  limits.type == TEXT_LIMITS_NONE && print(io, "no limits")
+  limits.type == TEXT_LIMITS_WIDTH_FIXED && print(io, "fixed width, no height limit")
+  limits.type == TEXT_LIMITS_FIXED && print(io, "fixed width and height")
+  print(io, ')')
+end
 
 Base.@kwdef struct TextOptions
   line_spacing::Float64 = 1
-  max_line_length::Float64 = 92
+  limits::TextLimits = TextLimits()
   language::Tag4 = tag"dflt"
 end
 

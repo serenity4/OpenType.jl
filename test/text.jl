@@ -1,4 +1,13 @@
 @testset "Text" begin
+  for size in [FontSize(), FontSize(1.0), FontSize(1.0, reduce_to_fit = false)]
+    @test sprint(show, MIME"text/plain"(), size) isa String
+  end
+
+  limits = TextLimits()
+  for limits in [TextLimits(), TextLimits(1.0), TextLimits(1.0, 2.0)]
+    @test sprint(show, MIME"text/plain"(), limits) isa String
+  end
+
   file = google_font_files["inter"][1]
   font = OpenTypeFont(file);
   options = FontOptions(ShapingOptions(tag"latn", tag"fra "), 12)
