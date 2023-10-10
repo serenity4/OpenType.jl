@@ -98,4 +98,11 @@
   # res = hb_shape(file, "ल\u094dल", options)
   # res = shape(font, "\u0939\u093f\u0928\u094d\u0926\u0940", options)
   # expected = "हिन्दी"
+
+  # Font without GPOS nor GSUB table.
+  file = google_font_files["jejumyeongjo"][1]
+  font = OpenTypeFont(file);
+  options = ShapingOptions(tag"latn", tag"fra ")
+  glyphs, positions = shape(font, "Hello world", options; info = (info = ShapingInfo()))
+  @test isempty(info.positionings) && isempty(info.substitutions)
 end;

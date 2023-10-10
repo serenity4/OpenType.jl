@@ -87,14 +87,18 @@ shape(font::OpenTypeFont, chars::AbstractVector{Char}, options::ShapingOptions; 
   shape(font, glyph_index.(font, chars), options; info)
 function shape(font::OpenTypeFont, glyphs::AbstractVector{GlyphID}, options::ShapingOptions; info::Optional{ShapingInfo} = nothing)
   # Glyph substitution.
-  callback = isnothing(info) ? nothing : (args...) -> record_substitution!(info, args...)
-  apply_substitution_rules!(glyphs, font.gsub, font.gdef, options.script, options.language, options.enabled_features, options.disabled_features, options.direction, (glyph, alts) -> glyph, callback)
+  if !isnothing(font.gsub)
+    callback = isnothing(info) ? nothing : (args...) -> record_substitution!(info, args...)
+    apply_substitution_rules!(glyphs, font.gsub, font.gdef, options.script, options.language, options.enabled_features, options.disabled_features, options.direction, (glyph, alts) -> glyph, callback)
+  end
 
   # Glyph positioning.
   offsets = zeros(GlyphOffset, length(glyphs))
   compute_advances!(offsets, font, glyphs, options.direction)
-  callback = isnothing(info) ? nothing : (args...) -> record_positioning!(info, args...)
-  apply_positioning_rules!(offsets, font.gpos, font.gdef, glyphs, options.script, options.language, options.enabled_features, options.disabled_features, options.direction, callback)
+  if !isnothing(font.gpos)
+    callback = isnothing(info) ? nothing : (args...) -> record_positioning!(info, args...)
+    apply_positioning_rules!(offsets, font.gpos, font.gdef, glyphs, options.script, options.language, options.enabled_features, options.disabled_features, options.direction, callback)
+  end
 
   glyphs, offsets
 end
