@@ -6,11 +6,12 @@ using GeometryExperiments
 using GeometryExperiments: decompactify
 using ColorTypes: RGBA
 using Accessors: @set, setproperties
-using .Meta: isexpr
 using BitMasks
 using StaticArrays
+using Reexport
+using .Meta: isexpr
 
-import GeometryExperiments: boundingelement
+@reexport import GeometryExperiments: boundingelement
 
 "0-based glyph identifier, often used as index with relevant data structures."
 const GlyphID = UInt16
@@ -41,6 +42,7 @@ include("font.jl")
 include("char_to_glyph.jl")
 include("shaping.jl")
 include("text.jl")
+include("show.jl")
 
 export GlyphID,
   GlyphOffset,

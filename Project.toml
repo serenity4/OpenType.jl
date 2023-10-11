@@ -9,6 +9,7 @@ BitMasks = "a3e06817-fd65-4797-8291-16f435bc2529"
 ColorTypes = "3da002f7-5984-5a60-b8a6-cbb66c0b333f"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 GeometryExperiments = "1147bd75-18e1-436d-adda-d58e854f897d"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 SwapStreams = "0b152c4a-7e29-418b-9258-223db38db9d9"
 

@@ -175,9 +175,21 @@ struct LineSegment
 end
 
 struct Line
-  glyphs::Vector{GlyphID}
-  positions::Vector{GlyphOffset}
+  """
+  Glyph indices into `outlines`. Has the same number of components as `positions`.
+
+  A value of 0 means that the glyph has no outlines.
+  """
+  glyphs::Vector{Int64}
+  "Relative positions with respect to the line start."
+  positions::Vector{Point2}
+  "Segments of the line that were shaped independently."
   segments::Vector{LineSegment}
+  """
+  Materialized glyph outlines (i.e. without implicit points), after scaling but before positioning within the line.
+  A given glyph appearing multiple times in a line will have the same outlines.
+  """
+  outlines::Vector{Vector{GlyphOutline}}
 end
 
 Base.show(io::IO, line::Line) = print(io, Line, '(', length(line.glyphs), " glyphs, ", length(line.segments), " segments)")
@@ -199,16 +211,42 @@ end
 function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}})
   lines = Line[]
   for line in split_lines(text)
-    line_glyphs, line_positions = GlyphID[], GlyphOffset[]
+    glyph_indices = Dict{Pair{GlyphID, OpenTypeFont}, Int64}()
+    line_glyphs, line_positions = GlyphID[], Point2[]
+    outlines = Vector{GlyphOutline}[]
     segments = LineSegment[]
     runs = compute_runs(line, fonts)
     for run in runs
-      glyphs, positions = shape(run.font, line.chars, run.options.shaping_options)
+      glyphs, offsets = shape(run.font, line.chars, run.options.shaping_options)
       push!(segments, LineSegment(run.range, run.font, run.options, GlyphStyle(run.style)))
-      append!(line_glyphs, glyphs)
-      append!(line_positions, positions)
+      start = isempty(line_positions) ? zero(Point2) : line_positions[end]
+      scale = run.options.font_size.value::Float64 / run.font.units_per_em
+      append!(line_positions, compute_positions(offsets, start, scale))
+      for glyph in glyphs
+        i = get!(glyph_indices, glyph => run.font) do
+          g = run.font[glyph]
+          isnothing(g) && return 0
+          curves = curves_normalized(g)
+          curves .*= scale
+          push!(outlines, curves)
+          lastindex(outlines)
+        end
+        push!(line_glyphs, i)
+      end
     end
-    push!(lines, Line(line_glyphs, line_positions, segments))
+    push!(lines, Line(line_glyphs, line_positions, segments, outlines))
   end
   lines
 end
+
+function compute_positions(offsets, start, scale)
+  positions = Point2[]
+  for offset in offsets
+    push!(positions, start .+ offset.origin .* scale)
+    start = start .+ offset.advance .* scale
+  end
+  positions
+end
+
+boundingelement(line::Line) = boundingelement(boundingelement(outlines) + position for (glyph, position, outlines) in zip(line.glyphs, line.positions, line.outlines) if !iszero(glyph))
+boundingelement(text::Text, fonts) = boundingelement(lines(text, fonts))

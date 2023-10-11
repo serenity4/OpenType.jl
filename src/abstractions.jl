@@ -200,12 +200,13 @@ const DEFAULT_FEATURES = Set([tag"abvm", tag"blwm", tag"ccmp", tag"locl", tag"ma
 const HORIZONTAL_FEATURES = Set([tag"calt", tag"clig", tag"curs", tag"dist", tag"kern", tag"liga", tag"rclt"])
 const VERTICAL_FEATURES = Set([tag"vert"])
 
+default_features(direction::Direction) = union(DEFAULT_FEATURES, ishorizontal(direction) ? HORIZONTAL_FEATURES : VERTICAL_FEATURES) 
+
 function applicable_features(fset::LookupFeatureSet, script_tag::Tag4, language_tag::Tag4, enabled_features::Set{Tag4}, disabled_features::Set{Tag4}, direction::Direction)
   language = language_system(script_tag, language_tag, fset.scripts)
   isnothing(language) && return Feature[]
   features = fset.features[language.feature_indices .+ 1]
-  default_features = union(DEFAULT_FEATURES, ishorizontal(direction) ? HORIZONTAL_FEATURES : VERTICAL_FEATURES) 
-  enabled_tags = setdiff!(default_features, disabled_features)
+  enabled_tags = setdiff!(default_features(direction), disabled_features)
   union!(enabled_tags, enabled_features)
   filter!(x -> in(x.tag, enabled_tags), features)
   language.required_feature_index ≠ typemax(UInt16) && pushfirst!(features, fset.features[language.required_feature_index + 1])
