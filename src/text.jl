@@ -226,9 +226,9 @@ function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}
         i = get!(glyph_indices, glyph => run.font) do
           g = run.font[glyph]
           isnothing(g) && return 0
-          curves = curves_normalized(g)
-          curves .*= scale
-          push!(outlines, curves)
+          geometry = curves(g)
+          geometry .*= scale
+          push!(outlines, geometry)
           lastindex(outlines)
         end
         push!(line_glyphs, i)
