@@ -11,11 +11,13 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 GeometryExperiments = "1147bd75-18e1-436d-adda-d58e854f897d"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+StyledStrings = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
 SwapStreams = "0b152c4a-7e29-418b-9258-223db38db9d9"
 
 [compat]
 GeometryExperiments = "0.4"
 Reexport = "1"
+StyledStrings = "1"
 SwapStreams = "0.2"
 julia = "1.9"
 
