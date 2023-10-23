@@ -1,10 +1,58 @@
-struct CharacterStyle
-  bold::Bool
-  italic::Bool
-  underline::Bool
-  strikethrough::Bool
-  color::RGBA{Float32}
-  size::Float64
+Base.@kwdef struct CharacterStyle
+  bold::Bool = false
+  italic::Bool = false
+  underline::Bool = false
+  strikethrough::Bool = false
+  color::Optional{RGBA{Float32}} = nothing
+  size::Optional{Float64} = nothing
+  font::Optional{String} = nothing
+end
+
+default_colors = Dict(
+  :red => RGBA(1f0, 0f0, 0f0, 1f0),
+  # ???
+)
+
+function CharacterStyle(annotations::AbstractVector{<:Pair{Symbol}}, colors = default_colors)
+  bold = italic = underline = strikethrough = false
+  color = size = font = nothing
+  for (label, value) in annotations
+    label === :size && (size = isa(value, String) ? parse(Float64, value) : convert(Float64, value))
+    label === :font && (font = value)
+    if label === :face
+      value === :bold && (bold = true)
+      value === :italic && (italic = true)
+      value === :underline && (underline = true)
+      value === :strikethrough && (strikethrough = true)
+      haskey(colors, value) && (color = colors[value])
+    elseif label === :color
+      color = something(parse_color(value), color)
+    end
+  end
+  CharacterStyle(; bold, italic, underline, strikethrough, color, size, font)
+end
+
+function parse_color(value)
+  if isa(value, String)
+    haskey(colors, value) && return colors[value]
+    m = match(r"#([0-9a-fA-F]{6|8})$", value)
+    if !isnothing(m)
+      hex = m[1]
+      length(hex) == 6 && (color = convert(RGBA{Float32}, RGB(ntuple(i -> parse(UInt8, @view hex[i:i+1]), 3)...)))
+      length(hex) == 8 && (color = convert(RGBA{Float32}, RGBA(ntuple(i -> parse(UInt8, @view hex[i:i+1]), 4)...)))
+      @debug "Ignoring unknown color attribute #$hex (expected 6- or 8-component hexadecimal string)"
+      return nothing
+    end
+  else
+    if isa(value, NTuple{3})
+      return convert(RGBA{Float32}, RGB(value...))
+    elseif isa(value, NTuple{4})
+      return convert(RGBA{Float32}, RGBA(value...))
+    else
+      return convert(RGBA{Float32}, value)
+    end
+  end
+  nothing
 end
 
 @enum FontSizeSpec::UInt8 begin
@@ -82,20 +130,36 @@ struct Text
   options::TextOptions
 end
 
-abstract type TextStyling end
+fallback_style() = CharacterStyle()
 
-function extract_style_from_text end
+extract_style_from_text(text::AbstractString) = [1 => fallback_style()]
 
-struct NoStyling <: TextStyling end
+function extract_style_from_text(text::Base.AnnotatedString)
+  annotations = Base.annotations(text)
+  style_changes = Pair{Int64,CharacterStyle}[]
+  sizehint!(style_changes, 50)
+  current_annotations = Pair{Symbol,Any}[]
+  sizehint!(current_annotations, 15)
 
-function extract_style_from_text(text::AbstractString, ::NoStyling)
-  chars = collect(text)
-  unique_style = CharacterStyle(false, false, false, false, RGBA(255/255, 255/255, 255/255, 255/255), 12)
-  (chars, [1 => unique_style])
+  prev_codeunit = 0
+  for (i, codeunit) in enumerate(eachindex(text))
+    we_have_new_style = i == 1 || any(codeunit == range[begin] || prev_codeunit == range[end] for (range, _) in annotations)
+    if we_have_new_style
+      # Push a new style change, reusing memory from `current_annotations`.
+      empty!(current_annotations)
+      for (range, pair) in annotations
+        in(codeunit, range) && push!(current_annotations, pair)
+      end
+      push!(style_changes, i => CharacterStyle(current_annotations))
+    end
+    prev_codeunit = codeunit
+  end
+  style_changes
 end
 
-function Text(text::String, options::TextOptions, styling::TextStyling = NoStyling())
-  chars, style_changes = extract_style_from_text(text, styling)
+function Text(text::AbstractString, options::TextOptions)
+  chars = collect(Char, text)
+  style_changes = extract_style_from_text(text)
   Text(chars, style_changes, options)
 end
 
@@ -160,7 +224,7 @@ function compute_runs(line::SplitLine, fonts::AbstractVector{Pair{OpenTypeFont, 
 end
 
 struct GlyphStyle
-  color::RGBA{Float32}
+  color::Optional{RGBA{Float32}}
   underline::Bool
   strikethrough::Bool
 end

@@ -1,8 +1,10 @@
 using OpenType, Test
-using OpenType: Tag, Tag2, Tag3, Tag4, Text, lines
+using OpenType: Tag, Tag2, Tag3, Tag4, Text, lines, extract_style_from_text, CharacterStyle
+using ColorTypes
 using GeometryExperiments: Point2
 using Accessors: @set, @reset
 using HarfBuzz_jll: libharfbuzz
+using StyledStrings
 
 include("utils.jl")
 include("libharfbuzz.jl")
