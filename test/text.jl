@@ -21,7 +21,8 @@
   @test sprint(show, MIME"text/plain"(), segment) isa String
   @test segment.indices == eachindex(t.chars)
   box = boundingelement(t, [font => options])
-  @test box.min == Point2(0, 0)
-  @test 1.18 < box.max[1] < 1.19
-  @test 3.55e-5 < box.max[2] < 3.56e-5
+  @test 0.0047 < box.min[1] < 0.0049
+  @test -0.022 < box.min[2] < -0.021
+  @test 1.20 < box.max[1] < 1.21
+  @test 0.076 < box.max[2] < 0.077
 end;
