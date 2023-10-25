@@ -4,7 +4,9 @@ using Dates
 using SwapStreams
 using GeometryExperiments
 using GeometryExperiments: decompactify
-using ColorTypes: RGBA
+using Colors
+using StyledStrings: StyledStrings, getface, eachregion
+using FixedPointNumbers
 using Accessors: @set, setproperties
 using BitMasks
 using StaticArrays

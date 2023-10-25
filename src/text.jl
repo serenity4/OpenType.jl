@@ -1,6 +1,6 @@
 Base.@kwdef struct CharacterStyle
-  bold::Bool = false
-  italic::Bool = false
+  weight::Symbol = :normal
+  slant::Symbol = :normal
   underline::Bool = false
   strikethrough::Bool = false
   color::Optional{RGBA{Float32}} = nothing
@@ -8,51 +8,36 @@ Base.@kwdef struct CharacterStyle
   font::Optional{String} = nothing
 end
 
-default_colors = Dict(
-  :red => RGBA(1f0, 0f0, 0f0, 1f0),
-  # ???
-)
-
-function CharacterStyle(annotations::AbstractVector{<:Pair{Symbol}}, colors = default_colors)
-  bold = italic = underline = strikethrough = false
-  color = size = font = nothing
-  for (label, value) in annotations
-    label === :size && (size = isa(value, String) ? parse(Float64, value) : convert(Float64, value))
-    label === :font && (font = value)
-    if label === :face
-      value === :bold && (bold = true)
-      value === :italic && (italic = true)
-      value === :underline && (underline = true)
-      value === :strikethrough && (strikethrough = true)
-      haskey(colors, value) && (color = colors[value])
-    elseif label === :color
-      color = something(parse_color(value), color)
-    end
+tryparse_color(value::Symbol) = tryparse_color(string(value))
+tryparse_color(value::Colorant) = value
+function tryparse_color(value::AbstractString)
+  try
+    parse(Colorant, replace(value, ';' => ','))
+  catch e
+    isa(e, InterruptException) && rethrow()
+    @debug "Ignoring color attribute with unrecognized value `$value`"
   end
-  CharacterStyle(; bold, italic, underline, strikethrough, color, size, font)
 end
 
-function parse_color(value)
-  if isa(value, String)
-    haskey(colors, value) && return colors[value]
-    m = match(r"#([0-9a-fA-F]{6|8})$", value)
-    if !isnothing(m)
-      hex = m[1]
-      length(hex) == 6 && (color = convert(RGBA{Float32}, RGB(ntuple(i -> parse(UInt8, @view hex[i:i+1]), 3)...)))
-      length(hex) == 8 && (color = convert(RGBA{Float32}, RGBA(ntuple(i -> parse(UInt8, @view hex[i:i+1]), 4)...)))
-      @debug "Ignoring unknown color attribute #$hex (expected 6- or 8-component hexadecimal string)"
-      return nothing
-    end
-  else
-    if isa(value, NTuple{3})
-      return convert(RGBA{Float32}, RGB(value...))
-    elseif isa(value, NTuple{4})
-      return convert(RGBA{Float32}, RGBA(value...))
+function CharacterStyle(annotations::AbstractVector{<:Pair{Symbol}})
+  color = size = font = nothing
+  face = getface(annotations)
+  if face.foreground ≠ StyledStrings.SimpleColor(:default)
+    (; value) = face.foreground
+    if isa(value, Symbol)
+      color = something(tryparse_color(value), Some(color))
     else
-      return convert(RGBA{Float32}, value)
+      color = RGB{N0f8}(value.r, value.g, value.b)
     end
   end
-  nothing
+  for (label, value) in annotations
+    label_str = string(label)
+    endswith(label_str, ' ') && (label = Symbol(strip(label_str)))
+    label === :color && (color = something(tryparse_color(value), Some(color)))
+    label === :size && (size = isa(value, String) ? parse(Float64, value) : convert(Float64, value))
+    label === :font && (font = value)
+  end
+  CharacterStyle(; face.weight, face.slant, face.underline, face.strikethrough, color, size, font)
 end
 
 @enum FontSizeSpec::UInt8 begin
@@ -135,24 +120,12 @@ fallback_style() = CharacterStyle()
 extract_style_from_text(text::AbstractString) = [1 => fallback_style()]
 
 function extract_style_from_text(text::Base.AnnotatedString)
-  annotations = Base.annotations(text)
-  style_changes = Pair{Int64,CharacterStyle}[]
+  style_changes = Pair{Int64, CharacterStyle}[]
   sizehint!(style_changes, 50)
-  current_annotations = Pair{Symbol,Any}[]
-  sizehint!(current_annotations, 15)
-
-  prev_codeunit = 0
-  for (i, codeunit) in enumerate(eachindex(text))
-    we_have_new_style = i == 1 || any(codeunit == range[begin] || prev_codeunit == range[end] for (range, _) in annotations)
-    if we_have_new_style
-      # Push a new style change, reusing memory from `current_annotations`.
-      empty!(current_annotations)
-      for (range, pair) in annotations
-        in(codeunit, range) && push!(current_annotations, pair)
-      end
-      push!(style_changes, i => CharacterStyle(current_annotations))
-    end
-    prev_codeunit = codeunit
+  i = 1
+  for (region, annotations) in eachregion(text)
+    push!(style_changes, i => CharacterStyle(annotations))
+    i += length(region)
   end
   style_changes
 end
