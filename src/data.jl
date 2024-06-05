@@ -43,10 +43,9 @@ A specification for OpenType font files is available
 at https://docs.microsoft.com/en-us/typography/opentype/spec/otff
 """
 
-Base.read(io::IOBuffer, ::Type{OpenTypeData}; verify_checksums::Bool = true) = read(correct_endianess(io), OpenTypeData; verify_checksums)
-Base.read(io::IO, ::Type{OpenTypeData}; verify_checksums::Bool = true) = read(IOBuffer(read(io)), OpenTypeData; verify_checksums)
+BinaryParsingTools.swap_endianness(io::IO, ::Type{OpenTypeData}) = peek(io, UInt32) == 0x00000100
 
-function Base.read(io::Union{SwapStream,TracedIO{<:SwapStream}}, ::Type{OpenTypeData}; verify_checksums::Bool = true)
+function Base.read(io::Union{BinaryIO, TracedIO{<:BinaryIO}}, ::Type{OpenTypeData}; verify_checksums::Bool = true)
     table_directory, nav = TableNavigationMap(io)
     if verify_checksums
         ret = @__MODULE__().verify_checksums(io, nav)
@@ -63,7 +62,7 @@ function Base.read(io::Union{SwapStream,TracedIO{<:SwapStream}}, ::Type{OpenType
     read(io, OpenTypeData, table_directory, nav)
 end
 
-function TableNavigationMap(io::Union{SwapStream,TracedIO{<:SwapStream}})
+function TableNavigationMap(io::IO)
     sfnt = peek(io, UInt32)
     sfnt in (0x00010000, 0x4F54544F) || error_invalid_font("Invalid format: unknown SFNT version (expected 0x00010000 or 0x4F54544F). The provided IO may not describe an OpenType font, or may describe one that is not conform to the OpenType specification.")
     table_directory = read(io, TableDirectory)
@@ -72,7 +71,7 @@ function TableNavigationMap(io::Union{SwapStream,TracedIO{<:SwapStream}})
     table_directory, nav
 end
 
-function Base.read(io::Union{SwapStream,TracedIO{<:SwapStream}}, ::Type{OpenTypeData}, table_directory::TableDirectory, nav::TableNavigationMap)
+function Base.read(io::IO, ::Type{OpenTypeData}, table_directory::TableDirectory, nav::TableNavigationMap)
     cmap = read_table(Base.Fix2(read, CharacterToGlyphIndexMappingTable), io, nav, tag"cmap")::CharacterToGlyphIndexMappingTable
     head = read_table(Base.Fix2(read, FontHeader), io, nav, tag"head")::FontHeader
     hhea = read_table(Base.Fix2(read, HorizontalHeader), io, nav, tag"hhea")::HorizontalHeader
@@ -99,10 +98,10 @@ end
 
 function OpenTypeData(file::AbstractString; verify_checksums::Bool = true, debug::Bool = false)
     open(file) do io
-        io = correct_endianess(IOBuffer(read(io)))
         if !debug
-            read(io, OpenTypeData; verify_checksums)
+            read_binary(io, OpenTypeData; verify_checksums)
         else
+            io = BinaryParsingTools.BinaryIO(BinaryParsingTools.swap_endianness(io, OpenTypeData), io)
             io = TracedIO(io)
             table_directory, nav = TableNavigationMap(io)
             read(io, OpenTypeData)

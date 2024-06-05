@@ -1,7 +1,7 @@
 module OpenType
 
 using Dates
-using SwapStreams
+using BinaryParsingTools
 using GeometryExperiments
 using GeometryExperiments: decompactify
 using Colors
@@ -53,11 +53,6 @@ export GlyphID,
   FontSize, FontOptions,
   TextLimits, TextOptions,
   text_glyphs,
-
-  @tag_str,
-  @tag2_str,
-  @tag3_str,
-  @tag4_str,
 
   shape,
   ShapingOptions,

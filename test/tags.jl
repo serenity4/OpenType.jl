@@ -3,18 +3,6 @@ using OpenType: find_language_tag, find_script_tag
 using Test
 
 @testset "Tags" begin
-  t = Tag("FRA ")
-  @test isa(t, Tag4)
-  @test convert(Tag, "FRA ") === t
-  @test convert(Tag4, "FRA ") === t
-  @test tag"FRA " === t
-  @test tag"FRA" !== tag"FRA "
-  @test isa(tag"FRA", Tag3)
-  @test_throws "4-character" Tag4("FRA")
-  @test_throws "ASCII" Tag("FRAα")
-  @test uppercase(tag"fr") === tag"FR"
-  @test lowercase(tag"FR") === tag"fr"
-
   @testset "Language tags" begin
     res = tag"FRA "
     @test find_language_tag(tag"FRA ") === res
