@@ -2,6 +2,7 @@ module OpenType
 
 using Dates
 using BinaryParsingTools
+@reexport using BinaryParsingTools: Tag, @tag_str, Tag2, Tag3, Tag4
 using GeometryExperiments
 using GeometryExperiments: decompactify
 using Colors
