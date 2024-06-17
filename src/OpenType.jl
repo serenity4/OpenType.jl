@@ -2,7 +2,6 @@ module OpenType
 
 using Dates
 using BinaryParsingTools
-@reexport using BinaryParsingTools: Tag, @tag_str, Tag2, Tag3, Tag4
 using GeometryExperiments
 using GeometryExperiments: decompactify
 using Colors
@@ -15,6 +14,7 @@ using Reexport
 using .Meta: isexpr
 
 @reexport import GeometryExperiments: boundingelement
+@reexport using BinaryParsingTools: Tag, @tag_str, Tag2, Tag3, Tag4
 
 "0-based glyph identifier, often used as index with relevant data structures."
 const GlyphID = UInt16
