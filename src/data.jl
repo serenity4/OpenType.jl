@@ -36,14 +36,8 @@ end
 
 Base.broadcastable(data::OpenTypeData) = Ref(data)
 
-"""
-Read OpenType font data from `io`.
-
-A specification for OpenType font files is available
-at https://docs.microsoft.com/en-us/typography/opentype/spec/otff
-"""
-
 BinaryParsingTools.swap_endianness(io::IO, ::Type{OpenTypeData}) = peek(io, UInt32) == 0x00000100
+BinaryParsingTools.cache_stream_in_ram(io::IO, ::Type{OpenTypeData}) = true
 
 function Base.read(io::Union{BinaryIO, TracedIO{<:BinaryIO}}, ::Type{OpenTypeData}; verify_checksums::Bool = true)
     table_directory, nav = TableNavigationMap(io)
@@ -96,6 +90,12 @@ function Base.read(io::IO, ::Type{OpenTypeData}, table_directory::TableDirectory
     OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gsub, gpos, gdef)
 end
 
+"""
+Read OpenType font data from a file.
+
+A specification for OpenType font files is available
+at https://docs.microsoft.com/en-us/typography/opentype/spec/otff
+"""
 function OpenTypeData(file::AbstractString; verify_checksums::Bool = true, debug::Bool = false)
     open(file) do io
         if !debug
