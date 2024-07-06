@@ -14,7 +14,7 @@ using Reexport
 using .Meta: isexpr
 
 @reexport import GeometryExperiments: boundingelement
-@reexport using BinaryParsingTools: Tag, @tag_str, Tag2, Tag3, Tag4
+@reexport using BinaryParsingTools: Tag, @tag_str, @tag2_str, @tag3_str, @tag4_str, Tag2, Tag3, Tag4
 
 "0-based glyph identifier, often used as index with relevant data structures."
 const GlyphID = UInt16
