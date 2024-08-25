@@ -75,9 +75,24 @@
   box = boundingelement(t, [font => options])
   @test 0.0047 < box.min[1] < 0.0049
   @test -0.022 < box.min[2] < -0.021
-  @test 1.20 < box.max[1] < 1.21
+  @test 1.81 < box.max[1] < 1.82
   @test 0.076 < box.max[2] < 0.077
 
-  t = Text(styled"The {bold:brown} {red:fox} {italic:jumps} over the {italic:lazy} dog.", TextOptions())
-  @test length(lines(t, [font => options])) == 1
+  t = Text(styled"The {bold:brown} {red:fox {italic:jumps}} over the {italic:lazy} dog.", TextOptions())
+  box2 = boundingelement(t, [font => options])
+  @test box == box2
+  line = only(lines(t, [font => options]))
+  @test length(line.segments) == 8
+  a, b, c, d, e, f, g, h = line.segments
+  @test a.style == GlyphStyle()
+  # TODO: Add weight to `GlyphStyle`.
+  @test b.style == GlyphStyle(nothing, false, false)
+  @test c.style == GlyphStyle()
+  @test d.style == GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), false, false)
+  # TODO: Add slant to `GlyphStyle`.
+  @test e.style == GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), false, false)
+  @test f.style == GlyphStyle()
+  # TODO: Add slant to `GlyphStyle`.
+  @test g.style == GlyphStyle(nothing, false, false)
+  @test h.style == GlyphStyle()
 end;

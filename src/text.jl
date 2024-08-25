@@ -188,10 +188,10 @@ function compute_runs(line::SplitLine, fonts::AbstractVector{Pair{OpenTypeFont, 
     font_index = something(findfirst(font -> has_font_coverage(char, font[1]), fonts), 1)
     script == last_script && style_index == last_style && font_index == last_font && i ≠ lastindex(line.chars) && continue
     (font, font_options) = fonts[last_font]
-    _, style = line.text_style_changes[style_index]
-    stop = i == lastindex(line.chars) ? i : i - 1
+    _, style = line.text_style_changes[last_style]
+    stop = i
     push!(runs, TextRun(start:stop, font, font_options, style, last_script))
-    (start, last_script, last_style, last_font) = (i, script, style_index, font_index)
+    (start, last_script, last_style, last_font) = (i + 1, script, style_index, font_index)
   end
   runs
 end
@@ -203,6 +203,7 @@ struct GlyphStyle
 end
 
 GlyphStyle(style::CharacterStyle) = GlyphStyle(style.color, style.underline, style.strikethrough)
+GlyphStyle() = GlyphStyle(CharacterStyle())
 
 struct LineSegment
   indices::UnitRange{Int64}
@@ -285,5 +286,17 @@ function compute_positions(offsets, start, scale)
   positions
 end
 
-boundingelement(line::Line) = boundingelement(boundingelement(outlines) + position for (glyph, position, outlines) in zip(line.glyphs, line.positions, line.outlines) if !iszero(glyph))
+function boundingelement(line::Line, segment::LineSegment)
+  res = nothing
+  for i in segment.indices
+    glyph = line.glyphs[i]
+    iszero(glyph) && continue
+    position = line.positions[i]
+    outlines = line.outlines[glyph]
+    geometry = boundingelement(outlines) + position
+    res = isnothing(res) ? geometry : boundingelement(res, geometry)
+  end
+  res
+end
+boundingelement(line::Line) = boundingelement(boundingelement(line, segment) for segment in line.segments if any(i -> !iszero(line.glyphs[i]), segment.indices))
 boundingelement(text::Text, fonts) = boundingelement(lines(text, fonts))
