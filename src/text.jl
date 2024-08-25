@@ -200,10 +200,17 @@ struct GlyphStyle
   color::Optional{RGBA{Float32}}
   underline::Bool
   strikethrough::Bool
+  size::Float64
 end
 
-GlyphStyle(style::CharacterStyle) = GlyphStyle(style.color, style.underline, style.strikethrough)
+GlyphStyle(style::CharacterStyle, size = 0.0) = GlyphStyle(style.color, style.underline, style.strikethrough, size)
+function GlyphStyle(run::TextRun)
+  style = GlyphStyle(run.style)
+  @set style.size = glyph_size(run)
+end
 GlyphStyle() = GlyphStyle(CharacterStyle())
+
+glyph_size(run::TextRun) = something(run.style.size, run.options.font_size.value) / run.font.units_per_em
 
 struct LineSegment
   indices::UnitRange{Int64}
@@ -254,18 +261,19 @@ function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}
     outlines = Vector{GlyphOutline}[]
     segments = LineSegment[]
     runs = compute_runs(line, fonts)
+    last_advance = nothing
     for run in runs
-      glyphs, offsets = shape(run.font, line.chars, run.options.shaping_options)
-      push!(segments, LineSegment(run.range, run.font, run.options, GlyphStyle(run.style)))
-      start = isempty(line_positions) ? zero(Point2) : line_positions[end]
-      scale = run.options.font_size.value::Float64 / run.font.units_per_em
-      append!(line_positions, compute_positions(offsets, start, scale))
+      glyphs, offsets = shape(run.font, @view(line.chars[run.range]), run.options.shaping_options)
+      segment = LineSegment(run.range, run.font, run.options, GlyphStyle(run))
+      push!(segments, segment)
+      start = isempty(line_positions) ? zero(Point2) : line_positions[end] .+ last_advance
+      append!(line_positions, compute_positions(offsets, start, segment.style.size))
+      last_advance = offsets[end].advance .* segment.style.size
       for glyph in glyphs
         i = get!(glyph_indices, glyph => run.font) do
           g = run.font[glyph]
           isnothing(g) && return 0
           geometry = curves(g)
-          geometry .*= scale
           push!(outlines, geometry)
           lastindex(outlines)
         end
@@ -288,11 +296,12 @@ end
 
 function boundingelement(line::Line, segment::LineSegment)
   res = nothing
+  (; size) = segment.style
   for i in segment.indices
     glyph = line.glyphs[i]
     iszero(glyph) && continue
     position = line.positions[i]
-    outlines = line.outlines[glyph]
+    outlines = line.outlines[glyph] .* size
     geometry = boundingelement(outlines) + position
     res = isnothing(res) ? geometry : boundingelement(res, geometry)
   end

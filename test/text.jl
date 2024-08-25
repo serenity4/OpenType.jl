@@ -84,15 +84,27 @@
   line = only(lines(t, [font => options]))
   @test length(line.segments) == 8
   a, b, c, d, e, f, g, h = line.segments
-  @test a.style == GlyphStyle()
+  test_style_equals(x, y) = for prop in fieldnames(GlyphStyle); prop ≠ :size && @test getproperty(x, prop) == getproperty(y, prop); end
+  test_style_equals(a.style, GlyphStyle())
   # TODO: Add weight to `GlyphStyle`.
-  @test b.style == GlyphStyle(nothing, false, false)
-  @test c.style == GlyphStyle()
-  @test d.style == GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), false, false)
+  test_style_equals(b.style, GlyphStyle(nothing, false, false, 0.0))
+  test_style_equals(c.style, GlyphStyle())
+  test_style_equals(d.style, GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), false, false, 0.0))
   # TODO: Add slant to `GlyphStyle`.
-  @test e.style == GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), false, false)
-  @test f.style == GlyphStyle()
+  test_style_equals(e.style, GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), false, false, 0.0))
+  test_style_equals(f.style, GlyphStyle())
   # TODO: Add slant to `GlyphStyle`.
-  @test g.style == GlyphStyle(nothing, false, false)
-  @test h.style == GlyphStyle()
+  test_style_equals(g.style, GlyphStyle(nothing, false, false, 0.0))
+  test_style_equals(h.style, GlyphStyle())
+
+  file = google_font_files["spacemono"][1]
+  font = OpenTypeFont(file);
+  t = Text(styled"{size=20:Some{size=100: big }text.}", TextOptions())
+  line = only(lines(t, [font => options]))
+  @test length(line.segments) == 3
+  a, b, c = line.segments
+  @test a.style.size === c.style.size
+  small = a.style.size
+  large = b.style.size
+  @test large ≈ 5small
 end;
