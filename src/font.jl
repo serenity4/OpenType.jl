@@ -18,6 +18,8 @@ struct OpenTypeFont
     cmap::CharacterToGlyphIndexMappingTable
     hmtx::Optional{HorizontalMetrics}
     vmtx::Optional{VerticalMetrics}
+    hhea::Optional{HorizontalHeader}
+    vhea::Optional{VerticalHeader}
 end
 
 Base.broadcastable(font::OpenTypeFont) = Ref(font)
@@ -34,7 +36,7 @@ function OpenTypeFont(data::OpenTypeData)
     gsub = isnothing(data.gsub) ? nothing : GlyphSubstitution(data.gsub)
     gpos = isnothing(data.gpos) ? nothing : GlyphPositioning(data.gpos)
     gdef = isnothing(data.gdef) ? nothing : GlyphDefinition(data.gdef)
-    OpenTypeFont(datetime(head.created), datetime(head.modified), in(FONT_LAST_RESORT, head.flags), head.units_per_em, cmap_subtable_index, glyphs, gsub, gpos, gdef, data.cmap, data.hmtx, data.vmtx)
+    OpenTypeFont(datetime(head.created), datetime(head.modified), in(FONT_LAST_RESORT, head.flags), head.units_per_em, cmap_subtable_index, glyphs, gsub, gpos, gdef, data.cmap, data.hmtx, data.vmtx, data.hhea, data.vhea)
 end
 
 Base.getindex(font::OpenTypeFont, char::Char) = font[glyph_index(font, char)]
