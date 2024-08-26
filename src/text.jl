@@ -4,6 +4,7 @@ Base.@kwdef struct CharacterStyle
   underline::Bool = false
   strikethrough::Bool = false
   color::Optional{RGBA{Float32}} = nothing
+  background::Optional{RGBA{Float32}} = nothing
   size::Optional{Float64} = nothing
   font::Optional{String} = nothing
 end
@@ -20,24 +21,26 @@ function tryparse_color(value::AbstractString)
 end
 
 function CharacterStyle(annotations::AbstractVector{<:Pair{Symbol}})
-  color = size = font = nothing
+  size = font = nothing
   face = getface(annotations)
-  if face.foreground ≠ StyledStrings.SimpleColor(:default)
-    (; value) = face.foreground
-    if isa(value, Symbol)
-      color = something(tryparse_color(value), Some(color))
-    else
-      color = RGB{N0f8}(value.r, value.g, value.b)
-    end
-  end
+  color = extract_color(face.foreground)
+  background = extract_color(face.background)
   for (label, value) in annotations
     label_str = string(label)
     endswith(label_str, ' ') && (label = Symbol(strip(label_str)))
     label === :color && (color = something(tryparse_color(value), Some(color)))
+    label === :background && (background = something(tryparse_color(value), Some(background)))
     label === :size && (size = isa(value, String) ? parse(Float64, value) : convert(Float64, value))
     label === :font && (font = value)
   end
-  CharacterStyle(; face.weight, face.slant, face.underline, face.strikethrough, color, size, font)
+  CharacterStyle(; face.weight, face.slant, face.underline, face.strikethrough, color, background, size, font)
+end
+
+function extract_color(color::StyledStrings.SimpleColor)
+  color == StyledStrings.SimpleColor(:default) && return nothing
+  (; value) = color
+  isa(value, Symbol) && return something(tryparse_color(value), Some(color))
+  RGB{N0f8}(value.r, value.g, value.b)
 end
 
 @enum FontSizeSpec::UInt8 begin
@@ -198,12 +201,13 @@ end
 
 struct GlyphStyle
   color::Optional{RGBA{Float32}}
+  background::Optional{RGBA{Float32}}
   underline::Bool
   strikethrough::Bool
   size::Float64
 end
 
-GlyphStyle(style::CharacterStyle, size = 0.0) = GlyphStyle(style.color, style.underline, style.strikethrough, size)
+GlyphStyle(style::CharacterStyle, size = 0.0) = GlyphStyle(style.color, style.background, style.underline, style.strikethrough, size)
 function GlyphStyle(run::TextRun)
   style = GlyphStyle(run.style)
   @set style.size = glyph_size(run)

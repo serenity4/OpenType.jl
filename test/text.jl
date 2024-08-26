@@ -9,13 +9,13 @@
   end
 
   @testset "Styling" begin
-    text = styled"{red:Hello!}{red, italic, font = arial:Hi!}{bold:ho}ha"
+    text = styled"{red:Hello!}{red, italic, font = arial:Hi!}{bold:ho}{background=red:ha}"
     style_changes = extract_style_from_text(text)
     @test style_changes == [
       1 => CharacterStyle(color = RGBA(1f0, 0f0, 0f0, 1f0)),
       7 => CharacterStyle(color = RGBA(1f0, 0f0, 0f0, 1f0), slant = :italic, font = "arial"),
       10 => CharacterStyle(weight = :bold),
-      12 => CharacterStyle(),
+      12 => CharacterStyle(background = RGBA(1f0, 0f0, 0f0, 1f0)),
     ]
 
     # Handle Unicode symbols that span multiple codeunits.
