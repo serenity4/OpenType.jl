@@ -33,7 +33,6 @@ const Fixed = UInt32
 
 include("tags.jl")
 include("scripts.jl")
-include("traced_io.jl")
 include("error.jl")
 include("parse.jl")
 include("data.jl")

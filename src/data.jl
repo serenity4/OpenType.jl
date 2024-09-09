@@ -39,7 +39,7 @@ Base.broadcastable(data::OpenTypeData) = Ref(data)
 BinaryParsingTools.swap_endianness(io::IO, ::Type{OpenTypeData}) = peek(io, UInt32) == 0x00000100
 BinaryParsingTools.cache_stream_in_ram(io::IO, ::Type{OpenTypeData}) = true
 
-function Base.read(io::Union{BinaryIO, TracedIO{<:BinaryIO}}, ::Type{OpenTypeData}; verify_checksums::Bool = true)
+function Base.read(io::BinaryIO, ::Type{OpenTypeData}; verify_checksums::Bool = true)
     table_directory, nav = TableNavigationMap(io)
     if verify_checksums
         ret = @__MODULE__().verify_checksums(io, nav)
@@ -102,18 +102,8 @@ function OpenTypeData(file::AbstractString; verify_checksums::Bool = true, debug
             read_binary(io, OpenTypeData; verify_checksums)
         else
             io = BinaryParsingTools.BinaryIO(BinaryParsingTools.swap_endianness(io, OpenTypeData), io)
-            io = TracedIO(io)
             table_directory, nav = TableNavigationMap(io)
             read(io, OpenTypeData)
-
-            # TODO: Provide debug information in case of failure based on parsed ranges.
-            # try
-            #   read(io, OpenTypeData, nav, table_directory)
-            # catch e
-            #     isa(e, EOFError) || rethrow()
-            #     error_hints(io)
-            #     rethrow()
-            # end
         end
     end
 end
