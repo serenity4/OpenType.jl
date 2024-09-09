@@ -8,6 +8,7 @@
 end
 
 struct OpenTypeData
+    file::Optional{String}
     table_directory::TableDirectory
     cmap::CharacterToGlyphIndexMappingTable
     head::FontHeader
@@ -39,7 +40,7 @@ Base.broadcastable(data::OpenTypeData) = Ref(data)
 BinaryParsingTools.swap_endianness(io::IO, ::Type{OpenTypeData}) = peek(io, UInt32) == 0x00000100
 BinaryParsingTools.cache_stream_in_ram(io::IO, ::Type{OpenTypeData}) = true
 
-function Base.read(io::BinaryIO, ::Type{OpenTypeData}; verify_checksums::Bool = true)
+function Base.read(io::BinaryIO, ::Type{OpenTypeData}; verify_checksums::Bool = true, file = nothing)
     table_directory, nav = TableNavigationMap(io)
     if verify_checksums
         ret = @__MODULE__().verify_checksums(io, nav)
@@ -53,7 +54,7 @@ function Base.read(io::BinaryIO, ::Type{OpenTypeData}; verify_checksums::Bool = 
             end
         end
     end
-    read(io, OpenTypeData, table_directory, nav)
+    read(io, OpenTypeData, file, table_directory, nav)
 end
 
 function TableNavigationMap(io::IO)
@@ -65,7 +66,7 @@ function TableNavigationMap(io::IO)
     table_directory, nav
 end
 
-function Base.read(io::IO, ::Type{OpenTypeData}, table_directory::TableDirectory, nav::TableNavigationMap)
+function Base.read(io::IO, ::Type{OpenTypeData}, file::Optional{String}, table_directory::TableDirectory, nav::TableNavigationMap)
     cmap = read_table(Base.Fix2(read, CharacterToGlyphIndexMappingTable), io, nav, tag"cmap")::CharacterToGlyphIndexMappingTable
     head = read_table(Base.Fix2(read, FontHeader), io, nav, tag"head")::FontHeader
     hhea = read_table(Base.Fix2(read, HorizontalHeader), io, nav, tag"hhea")::HorizontalHeader
@@ -87,7 +88,7 @@ function Base.read(io::IO, ::Type{OpenTypeData}, table_directory::TableDirectory
     gpos = read_table(Base.Fix2(read, GlyphPositioningTable), io, nav, tag"GPOS")
     gdef = read_table(Base.Fix2(read, GlyphDefinitionTable), io, nav, tag"GDEF")
 
-    OpenTypeData(table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gsub, gpos, gdef)
+    OpenTypeData(file, table_directory, cmap, head, hhea, hmtx, maxp, nothing, nothing, nothing, vhea, vmtx, loca, glyf, avar, fvar, gsub, gpos, gdef)
 end
 
 """
@@ -99,7 +100,7 @@ at https://docs.microsoft.com/en-us/typography/opentype/spec/otff
 function OpenTypeData(file::AbstractString; verify_checksums::Bool = true, debug::Bool = false)
     open(file) do io
         if !debug
-            read_binary(io, OpenTypeData; verify_checksums)
+            read_binary(io, OpenTypeData; verify_checksums, file)
         else
             io = BinaryParsingTools.BinaryIO(BinaryParsingTools.swap_endianness(io, OpenTypeData), io)
             table_directory, nav = TableNavigationMap(io)

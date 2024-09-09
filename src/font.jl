@@ -3,6 +3,7 @@ Structured representation of an OpenType font.
 """
 struct OpenTypeFont
     # Font metadata.
+    file::Optional{String}
     created::DateTime
     modified::DateTime
     last_resort_font::Bool
@@ -36,7 +37,7 @@ function OpenTypeFont(data::OpenTypeData)
     gsub = isnothing(data.gsub) ? nothing : GlyphSubstitution(data.gsub)
     gpos = isnothing(data.gpos) ? nothing : GlyphPositioning(data.gpos)
     gdef = isnothing(data.gdef) ? nothing : GlyphDefinition(data.gdef)
-    OpenTypeFont(datetime(head.created), datetime(head.modified), in(FONT_LAST_RESORT, head.flags), head.units_per_em, cmap_subtable_index, glyphs, gsub, gpos, gdef, data.cmap, data.hmtx, data.vmtx, data.hhea, data.vhea)
+    OpenTypeFont(data.file, datetime(head.created), datetime(head.modified), in(FONT_LAST_RESORT, head.flags), head.units_per_em, cmap_subtable_index, glyphs, gsub, gpos, gdef, data.cmap, data.hmtx, data.vmtx, data.hhea, data.vhea)
 end
 
 Base.getindex(font::OpenTypeFont, char::Char) = font[glyph_index(font, char)]

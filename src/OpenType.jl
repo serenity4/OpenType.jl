@@ -11,6 +11,7 @@ using Accessors: @set, setproperties
 using BitMasks
 using StaticArrays
 using Reexport
+using HarfBuzz_jll: libharfbuzz
 using .Meta: isexpr
 
 @reexport import GeometryExperiments: boundingelement
@@ -42,6 +43,8 @@ include("positioning.jl")
 include("substitutions.jl")
 include("font.jl")
 include("char_to_glyph.jl")
+include("shaping/harfbuzz.jl")
+include("shaping/legacy.jl")
 include("shaping.jl")
 include("text.jl")
 include("show.jl")

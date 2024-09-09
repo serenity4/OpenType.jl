@@ -1,4 +1,5 @@
 using OpenType, Test
+using OpenType: hb_shape, hb_feature_t
 using GeometryExperiments: Point
 
 @testset "HarfBuzz" begin

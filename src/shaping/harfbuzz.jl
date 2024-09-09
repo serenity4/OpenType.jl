@@ -10,6 +10,17 @@ function hb_feature_t(tag::Tag4, enabled::Bool)
   hb_feature_t(tag, enabled, 0, typemax(UInt32))
 end
 
+function hb_features(options::ShapingOptions)
+  features = hb_feature_t[]
+  for feature in options.enabled_features
+    push!(features, hb_feature_t(feature, true))
+  end
+  for feature in options.disabled_features
+    push!(features, hb_feature_t(feature, false))
+  end
+  features
+end
+
 function Base.show(io::IO, feature::hb_feature_t)
   buff = zeros(Cchar, 128)
   @ccall libharfbuzz.hb_feature_to_string(Ref(feature)::Ptr{hb_feature_t}, buff::Ptr{Cchar}, 128::Cuint)::Cvoid
@@ -43,6 +54,10 @@ const CEnum_T = Int16
 hb_direction(direction::AbstractString) = @ccall libharfbuzz.hb_direction_from_string(direction::Cstring, (-1)::Int16)::CEnum_T
 hb_direction(direction::Direction) = hb_direction(direction == DIRECTION_LEFT_TO_RIGHT ? "LTR" : direction == DIRECTION_RIGHT_TO_LEFT ? "RTL" : direction == DIRECTION_TOP_TO_BOTTOM ? "TTB" : "BTT")
 
+function hb_shape(font_file::AbstractString, text::AbstractVector{Char}, options::ShapingOptions)
+  hb_shape(font_file, String(text), options)
+end
+
 function hb_shape(font_file::AbstractString, text::AbstractString, options::ShapingOptions)
   blob = @ccall libharfbuzz.hb_blob_create_from_file(font_file::Cstring)::Ptr{Nothing}
   face = @ccall libharfbuzz.hb_face_create(blob::Ptr{Nothing}, 0::UInt16)::Ptr{Nothing}
@@ -58,7 +73,7 @@ function hb_shape(font_file::AbstractString, text::AbstractString, options::Shap
   @ccall libharfbuzz.hb_buffer_set_script(buffer::Ptr{Nothing}, script::UInt32)::Ptr{Nothing}
   @ccall libharfbuzz.hb_buffer_set_language(buffer::Ptr{Nothing}, language::UInt32)::Ptr{Nothing}
 
-  user_features = [hb_feature_t.(options.enabled_features, true); hb_feature_t.(options.disabled_features, false)]
+  user_features = hb_features(options)
   @ccall libharfbuzz.hb_shape(font::Ptr{Nothing}, buffer::Ptr{Nothing}, user_features::Ptr{hb_feature_t}, length(user_features)::UInt16)::Ptr{Nothing}
 
   glyph_count = Ref{UInt16}(0)
@@ -73,7 +88,7 @@ function hb_shape(font_file::AbstractString, text::AbstractString, options::Shap
   @ccall libharfbuzz.hb_face_destroy(face::Ptr{Nothing})::Ptr{Nothing}
   @ccall libharfbuzz.hb_blob_destroy(blob::Ptr{Nothing})::Ptr{Nothing}
 
-  glyph_ids = GlyphID.(getproperty.(infos, :codepoint))
-  offsets = GlyphOffset.(positions)
-  glyph_ids, offsets
+  indices = GlyphID[info.codepoint for info in infos]
+  offsets = map(GlyphOffset, positions)
+  indices, offsets
 end

@@ -75,7 +75,7 @@
   box = boundingelement(t, [font => options])
   @test 0.0047 < box.min[1] < 0.0049
   @test -0.022 < box.min[2] < -0.021
-  @test 1.81 < box.max[1] < 1.82
+  @test 1.85 < box.max[1] < 1.86
   @test 0.076 < box.max[2] < 0.077
 
   t = Text(styled"The {bold:brown} {red:fox {italic:jumps}} over the {italic:lazy} dog.", TextOptions())
@@ -87,14 +87,14 @@
   test_style_equals(x, y) = for prop in fieldnames(GlyphStyle); prop ≠ :size && @test getproperty(x, prop) == getproperty(y, prop); end
   test_style_equals(a.style, GlyphStyle())
   # TODO: Add weight to `GlyphStyle`.
-  test_style_equals(b.style, GlyphStyle(nothing, false, false, 0.0))
+  test_style_equals(b.style, GlyphStyle(nothing, nothing, false, false, 0.0))
   test_style_equals(c.style, GlyphStyle())
-  test_style_equals(d.style, GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), false, false, 0.0))
+  test_style_equals(d.style, GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), nothing, false, false, 0.0))
   # TODO: Add slant to `GlyphStyle`.
-  test_style_equals(e.style, GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), false, false, 0.0))
+  test_style_equals(e.style, GlyphStyle(RGBA(1f0, 0f0, 0f0, 1f0), nothing, false, false, 0.0))
   test_style_equals(f.style, GlyphStyle())
   # TODO: Add slant to `GlyphStyle`.
-  test_style_equals(g.style, GlyphStyle(nothing, false, false, 0.0))
+  test_style_equals(g.style, GlyphStyle(nothing, nothing, false, false, 0.0))
   test_style_equals(h.style, GlyphStyle())
 
   file = google_font_files["spacemono"][1]

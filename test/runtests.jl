@@ -1,14 +1,12 @@
 using OpenType, Test
-using OpenType: Text, lines, extract_style_from_text, CharacterStyle
+using OpenType: Text, lines, extract_style_from_text, CharacterStyle, hb_shape
 using BinaryParsingTools
 using GeometryExperiments: Point2
 using Accessors: @set, @reset
-using HarfBuzz_jll: libharfbuzz
 using StyledStrings
 using Colors
 
 include("utils.jl")
-include("libharfbuzz.jl")
 
 @testset "OpenType.jl" begin
     include("tags.jl")
