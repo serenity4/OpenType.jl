@@ -71,8 +71,8 @@ end
 
 jl_shape(font::OpenTypeFont, text::AbstractString, options::ShapingOptions; info::Optional{ShapingInfo} = nothing) = jl_shape(font, collect(text), options; info)
 
-jl_shape(font::OpenTypeFont, chars::AbstractVector{Char}, options::ShapingOptions; info::Optional{ShapingInfo} = nothing) = 
-  shape(font, glyph_index.(font, chars), options; info)
+jl_shape(font::OpenTypeFont, chars::AbstractVector{Char}, options::ShapingOptions; info::Optional{ShapingInfo} = nothing) =
+  jl_shape(font, glyph_index.(font, chars), options; info)
 function jl_shape(font::OpenTypeFont, glyphs::AbstractVector{GlyphID}, options::ShapingOptions; info::Optional{ShapingInfo} = nothing)
   # Glyph substitution.
   if !isnothing(font.gsub)
