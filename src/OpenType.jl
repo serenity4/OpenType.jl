@@ -84,9 +84,11 @@ export GlyphID,
   SUBSTITUTION_RULE_CONTEXTUAL_CHAINED,
   SUBSTITUTION_RULE_REVERSE_CONTEXTUAL_CHAINED_SINGLE,
 
-  Line,
+  Line, LineSegment,
+  ascender, descender,
+  segment_geometry, segment_height, line_geometry, text_geometry,
+  has_outlines,
   lines,
-  LineSegment,
   GlyphStyle
 
 end

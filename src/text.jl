@@ -223,6 +223,11 @@ struct LineSegment
   style::GlyphStyle
 end
 
+ascender(segment::LineSegment) = segment.font.hhea.ascender * segment.style.size
+descender(segment::LineSegment) = segment.font.hhea.descender * segment.style.size
+
+segment_height(segment::LineSegment) = ascender(segment) - descender(segment)
+
 struct Line
   """
   Glyph indices into `outlines`. Has the same number of components as `positions`.
@@ -232,6 +237,8 @@ struct Line
   glyphs::Vector{Int64}
   "Relative positions with respect to the line start."
   positions::Vector{Point2}
+  "Advances for each glyph."
+  advances::Vector{Point2}
   "Segments of the line that were shaped independently."
   segments::Vector{LineSegment}
   """
@@ -242,6 +249,39 @@ struct Line
 end
 
 Base.show(io::IO, line::Line) = print(io, Line, '(', length(line.glyphs), " glyphs, ", length(line.segments), " segments)")
+
+function segment_geometry(line::Line, segment::LineSegment)
+  isempty(segment.indices) && return nothing
+  ymin = descender(segment)
+  ymax = ascender(segment)
+  xmin, _ = line.positions[first(segment.indices)]
+  width = sum(first, @view line.advances[segment.indices]; init = 0.0)
+  xmax = xmin + width
+  Box(Point2(xmin, ymin), Point2(xmax, ymax))
+end
+
+function line_geometry(line::Line)
+  isempty(line.positions) && return nothing
+  xmin, _ = line.positions[1]
+  ymin = descender(line)
+  ymax = ascender(line)
+  width = sum(first, line.advances; init = 0.0)
+  xmax = xmin + width
+  Box(Point2(xmin, ymin), Point2(xmax, ymax))
+end
+
+function has_outlines(line::Line, segment::LineSegment)
+  for index in segment.indices
+    glyph = line.glyphs[index]
+    iszero(glyph) && continue
+    outlines = line.outlines[glyph]
+    !isempty(outlines) && return true
+  end
+  false
+end
+
+ascender(line::Line) = maximum(ascender, line.segments; init = 0.0)
+descender(line::Line) = maximum(descender, line.segments; init = 0.0)
 
 function split_lines(text::Text)
   newlines = findall(==('\n'), text.chars)
@@ -261,7 +301,7 @@ function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}
   lines = Line[]
   for line in split_lines(text)
     glyph_indices = Dict{Pair{GlyphID, OpenTypeFont}, Int64}()
-    line_glyphs, line_positions = GlyphID[], Point2[]
+    line_glyphs, line_positions, line_advances = GlyphID[], Point2[], Point2[]
     outlines = Vector{GlyphOutline}[]
     segments = LineSegment[]
     runs = compute_runs(line, fonts)
@@ -272,6 +312,7 @@ function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}
       push!(segments, segment)
       start = isempty(line_positions) ? zero(Point2) : line_positions[end] .+ last_advance
       append!(line_positions, compute_positions(offsets, start, segment.style.size))
+      append!(line_advances, [offset.advance .* segment.style.size for offset in offsets])
       last_advance = offsets[end].advance .* segment.style.size
       for glyph in glyphs
         i = get!(glyph_indices, glyph => run.font) do
@@ -284,7 +325,7 @@ function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}
         push!(line_glyphs, i)
       end
     end
-    push!(lines, Line(line_glyphs, line_positions, segments, outlines))
+    push!(lines, Line(line_glyphs, line_positions, line_advances, segments, outlines))
   end
   lines
 end
@@ -298,18 +339,16 @@ function compute_positions(offsets, start, scale)
   positions
 end
 
-function boundingelement(line::Line, segment::LineSegment)
-  res = nothing
-  (; size) = segment.style
-  for i in segment.indices
-    glyph = line.glyphs[i]
-    iszero(glyph) && continue
-    position = line.positions[i]
-    outlines = line.outlines[glyph] .* size
-    geometry = boundingelement(outlines) + position
-    res = isnothing(res) ? geometry : boundingelement(res, geometry)
+text_geometry(text::Text, fonts) = text_geometry(text, lines(text, fonts))
+
+function text_geometry(text::Text, lines::AbstractVector{Line})
+  result = nothing
+  for line in lines
+    geometry = line_geometry(line)
+    if !isnothing(result)
+      geometry -= Point2(0.0, text.options.line_spacing * result.height)
+    end
+    result = isnothing(result) ? geometry : boundingelement(result, geometry)
   end
-  res
+  result
 end
-boundingelement(line::Line) = boundingelement(boundingelement(line, segment) for segment in line.segments if any(i -> !iszero(line.glyphs[i]), segment.indices))
-boundingelement(text::Text, fonts) = boundingelement(lines(text, fonts))

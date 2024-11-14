@@ -72,14 +72,13 @@
   segment = line.segments[1]
   @test sprint(show, MIME"text/plain"(), segment) isa String
   @test segment.indices == eachindex(t.chars)
-  box = boundingelement(t, [font => options])
-  @test 0.0047 < box.min[1] < 0.0049
-  @test -0.022 < box.min[2] < -0.021
-  @test 1.85 < box.max[1] < 1.86
-  @test 0.076 < box.max[2] < 0.077
+  box = text_geometry(t, [font => options])
+  @test box.min === Point2(0, 0)
+  @test 1.82 < box.max[1] < 1.83
+  @test 0.096 < box.max[2] < 0.097
 
   t = Text(styled"The {bold:brown} {red:fox {italic:jumps}} over the {italic:lazy} dog.", TextOptions())
-  box2 = boundingelement(t, [font => options])
+  box2 = text_geometry(t, [font => options])
   @test box == box2
   line = only(lines(t, [font => options]))
   @test length(line.segments) == 8
