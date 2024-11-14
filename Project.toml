@@ -1,7 +1,7 @@
 name = "OpenType"
 uuid = "e5a4412f-5132-4ec5-841c-0d067f41fa94"
 authors = ["Cédric Belmant"]
-version = "0.1.13"
+version = "0.1.14"
 
 [deps]
 Accessors = "7d9f7c33-5ae7-4f3b-8dc6-eff91059b697"
