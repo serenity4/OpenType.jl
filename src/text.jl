@@ -257,7 +257,7 @@ function segment_geometry(line::Line, segment::LineSegment)
   xmin, _ = line.positions[first(segment.indices)]
   width = sum(first, @view line.advances[segment.indices]; init = 0.0)
   xmax = xmin + width
-  Box(Point2(xmin, ymin), Point2(xmax, ymax))
+  Box((xmin, ymin) .* cm, (xmax, ymax) .* cm)
 end
 
 function line_geometry(line::Line)
@@ -267,7 +267,7 @@ function line_geometry(line::Line)
   ymax = ascender(line)
   width = sum(first, line.advances; init = 0.0)
   xmax = xmin + width
-  Box(Point2(xmin, ymin), Point2(xmax, ymax))
+  Box((xmin, ymin) .* cm, (xmax, ymax) .* cm)
 end
 
 function has_outlines(line::Line, segment::LineSegment)

@@ -73,9 +73,10 @@
   @test sprint(show, MIME"text/plain"(), segment) isa String
   @test segment.indices == eachindex(t.chars)
   box = text_geometry(t, [font => options])
-  @test box.min === Point2(0, 0)
-  @test 1.82 < box.max[1] < 1.83
-  @test 0.096 < box.max[2] < 0.097
+  @test box.min == Point(0, 0)
+  cs = coords(box.max)
+  @test 1.82cm < cs.x < 1.83cm
+  @test 0.096cm < cs.y < 0.097cm
 
   t = Text(styled"The {bold:brown} {red:fox {italic:jumps}} over the {italic:lazy} dog.", TextOptions())
   box2 = text_geometry(t, [font => options])

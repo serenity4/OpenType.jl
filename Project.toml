@@ -12,10 +12,12 @@ Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 FixedPointNumbers = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 GeometryExperiments = "1147bd75-18e1-436d-adda-d58e854f897d"
 HarfBuzz_jll = "2e76f6c2-a576-52d4-95c1-20adfe4de566"
+Meshes = "eacbb407-ea5a-433e-ab97-5258b1ca43fa"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StyledStrings = "f489334b-da3d-4c2e-b8f0-e476e12c162b"
 SwapStreams = "0b152c4a-7e29-418b-9258-223db38db9d9"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
 
 [compat]
 BinaryParsingTools = "0.1"
@@ -29,6 +31,7 @@ Reexport = "1"
 StaticArrays = "1"
 StyledStrings = "1"
 SwapStreams = "0.2"
+Unitful = "1.21.0"
 julia = "1.11"
 
 [extras]

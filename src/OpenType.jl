@@ -12,6 +12,10 @@ using StaticArrays
 using Reexport
 using HarfBuzz_jll: libharfbuzz
 using .Meta: isexpr
+using Meshes: Box
+using Unitful: @u_str
+
+const cm = u"cm"
 
 const Vec = SVector
 const Vec2 = SVector{2,Float64}
