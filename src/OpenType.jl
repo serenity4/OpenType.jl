@@ -2,7 +2,7 @@ module OpenType
 
 using Dates
 using BinaryParsingTools
-using GeometryExperiments: Patch, BezierCurve, decompactify, Point2, Box
+using GeometryExperiments: Patch, BezierCurve, decompactify, Point2, Box, PointSet
 using Colors
 using StyledStrings: StyledStrings, getface, eachregion
 using FixedPointNumbers
