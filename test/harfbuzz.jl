@@ -1,12 +1,11 @@
 using OpenType, Test
 using OpenType: hb_shape, hb_feature_t
-using GeometryExperiments: Point
 
 @testset "HarfBuzz" begin
   file = font_file("juliamono")
   options = ShapingOptions(tag"latn", tag"FRA ")
   glyphs, positions = hb_shape(file, "AVAA", options)
-  @test getproperty.(positions, :advance) == repeat([Point(600, 0)], 4)
+  @test getproperty.(positions, :advance) == repeat([Vec(600, 0)], 4)
   @test glyphs == [4, 451, 4, 4]
 
   file = first(google_font_files["notoseriflao"])

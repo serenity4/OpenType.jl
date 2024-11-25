@@ -236,9 +236,9 @@ struct Line
   """
   glyphs::Vector{Int64}
   "Relative positions with respect to the line start."
-  positions::Vector{Point2}
+  positions::Vector{Vec2}
   "Advances for each glyph."
-  advances::Vector{Point2}
+  advances::Vector{Vec2}
   "Segments of the line that were shaped independently."
   segments::Vector{LineSegment}
   """
@@ -301,7 +301,7 @@ function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}
   lines = Line[]
   for line in split_lines(text)
     glyph_indices = Dict{Pair{GlyphID, OpenTypeFont}, Int64}()
-    line_glyphs, line_positions, line_advances = GlyphID[], Point2[], Point2[]
+    line_glyphs, line_positions, line_advances = GlyphID[], Vec2[], Vec2[]
     outlines = Vector{GlyphOutline}[]
     segments = LineSegment[]
     runs = compute_runs(line, fonts)
@@ -310,7 +310,7 @@ function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}
       glyphs, offsets = shape(run.font, @view(line.chars[run.range]), run.options.shaping_options)
       segment = LineSegment(run.range, run.font, run.options, GlyphStyle(run))
       push!(segments, segment)
-      start = isempty(line_positions) ? zero(Point2) : line_positions[end] .+ last_advance
+      start = isempty(line_positions) ? zero(Vec2) : line_positions[end] .+ last_advance
       append!(line_positions, compute_positions(offsets, start, segment.style.size))
       append!(line_advances, [offset.advance .* segment.style.size for offset in offsets])
       last_advance = offsets[end].advance .* segment.style.size
@@ -331,7 +331,7 @@ function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}
 end
 
 function compute_positions(offsets, start, scale)
-  positions = Point2[]
+  positions = Vec2[]
   for offset in offsets
     push!(positions, start .+ offset.origin .* scale)
     start = start .+ offset.advance .* scale
@@ -346,7 +346,7 @@ function text_geometry(text::Text, lines::AbstractVector{Line})
   for line in lines
     geometry = line_geometry(line)
     if !isnothing(result)
-      geometry -= Point2(0.0, text.options.line_spacing * result.height)
+      geometry -= Vec2(0.0, text.options.line_spacing * result.height)
     end
     result = isnothing(result) ? geometry : boundingelement(result, geometry)
   end

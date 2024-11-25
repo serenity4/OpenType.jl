@@ -2,8 +2,7 @@ module OpenType
 
 using Dates
 using BinaryParsingTools
-using GeometryExperiments
-using GeometryExperiments: decompactify
+using GeometryExperiments: Patch, BezierCurve, decompactify, Point2, Box
 using Colors
 using StyledStrings: StyledStrings, getface, eachregion
 using FixedPointNumbers
@@ -13,6 +12,9 @@ using StaticArrays
 using Reexport
 using HarfBuzz_jll: libharfbuzz
 using .Meta: isexpr
+
+const Vec = SVector
+const Vec2 = SVector{2,Float64}
 
 @reexport import GeometryExperiments: boundingelement
 @reexport using BinaryParsingTools: Tag, @tag_str, @tag2_str, @tag3_str, @tag4_str, Tag2, Tag3, Tag4

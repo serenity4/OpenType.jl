@@ -1,6 +1,5 @@
 using OpenType
 using OpenType: OpenTypeData, GlyphPointInfo, GlyphHeader, extract_points
-using GeometryExperiments
 using StaticArrays
 using LinearAlgebra
 
@@ -60,7 +59,7 @@ using LinearAlgebra
 
       # Coordinate system is in (integer) font units.
       curves = OpenType.curves(glyph)
-      @test isa(curves, Vector{SVector{3,Point2}})
+      @test isa(curves, Vector{Vec{3,Vec2}})
       @test all(length(curve) == 3 for curve in curves)
       mi, ma = extrema(maximum.(broadcast.(norm, curves)))
       @test 300 < mi < 400 && 800 < ma < 900

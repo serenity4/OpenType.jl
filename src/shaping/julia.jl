@@ -16,11 +16,11 @@ function metric_offset(font::OpenTypeFont, glyph::GlyphID, direction::Direction)
   if ishorizontal(direction)
     !isnothing(font.hmtx) || error("No horizontal metrics present for the provided font.")
     metric = horizontal_metric(font.hmtx, glyph)
-    GlyphOffset(Point(0, 0), Point(metric.advance_width, 0))
+    GlyphOffset(Vec(0, 0), Vec(metric.advance_width, 0))
   else
     !isnothing(font.vmtx) || error("No vertical metrics present for the provided font.")
     metric = vertical_metric(font.vmtx, glyph, direction)
-    GlyphOffset(Point(0, 0), Point(0, metric.advance_width))
+    GlyphOffset(Vec(0, 0), Vec(0, metric.advance_width))
   end
 end
 

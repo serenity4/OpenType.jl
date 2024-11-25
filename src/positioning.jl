@@ -19,16 +19,16 @@ end
 
 struct GlyphOffset
   "Offset to the origin of the glyph."
-  origin::Point{2,Int16}
+  origin::Vec{2,Int16}
   "Offset to the advance that will be applied to the pen position after writing the glyph to proceed to the next one."
-  advance::Point{2,Int16}
+  advance::Vec{2,Int16}
 end
 
-GlyphOffset(x_offset, y_offset, x_advance, y_advance) = GlyphOffset(Point{2,Int16}(x_offset, y_offset), Point{2,Int16}(x_advance, y_advance))
+GlyphOffset(x_offset, y_offset, x_advance, y_advance) = GlyphOffset(Vec{2,Int16}(x_offset, y_offset), Vec{2,Int16}(x_advance, y_advance))
 
 Base.show(io::IO, offset::GlyphOffset) = print(io, GlyphOffset, "(origin = ", offset.origin, ", advance = ", offset.advance, ")")
 
-Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Point{2,Int16}), zero(Point{2,Int16}))
+Base.zero(::Type{GlyphOffset}) = GlyphOffset(zero(Vec{2,Int16}), zero(Vec{2,Int16}))
 Base.:(+)(x::GlyphOffset, y::GlyphOffset) = GlyphOffset(x.origin + y.origin, x.advance + y.advance)
 
 apply_positioning_rules!(glyph_offsets::AbstractVector{GlyphOffset}, gpos::GlyphPositioning, gdef::Optional{GlyphDefinition}, glyphs::AbstractVector{GlyphID}, script_tag::Tag4, language_tag::Tag4, enabled_features::Set{Tag4}, disabled_features::Set{Tag4}, direction::Direction, callback::Optional{Function}) = apply_positioning_rules!(glyph_offsets, gpos, gdef, glyphs, applicable_features(gpos, script_tag, language_tag, enabled_features, disabled_features, direction), callback)
@@ -119,7 +119,7 @@ function apply_positioning_rules_recursive!(glyph_offsets, i, gpos, gdef, glyphs
   jmax
 end
 
-function align_anchors(offsets::AbstractVector{GlyphOffset}, i::Int, (base, next)::Tuple{Point{2,Int16}, Point{2,Int16}})
+function align_anchors(offsets::AbstractVector{GlyphOffset}, i::Int, (base, next)::Tuple{Vec{2,Int16}, Vec{2,Int16}})
   base_origin = offsets[i - 1].origin
   advance = offsets[i - 1].advance
   next_origin = offsets[i].origin
@@ -133,7 +133,7 @@ function align_anchors(offsets::AbstractVector{GlyphOffset}, i::Int, (base, next
   position_offset = (next_origin + advance) - base_origin
   offset = alignment_offset + position_offset
   origin = -offset
-  GlyphOffset(origin, zero(Point{2,Int16}))
+  GlyphOffset(origin, zero(Vec{2,Int16}))
 end
 
 struct AdjustmentPositioning
@@ -171,7 +171,7 @@ function apply_positioning_rule((first, second)::Pair{GlyphID}, pattern::ClassPa
   pattern.pairs[c1 + 1][c2 + 1]
 end
 
-const AnchorPoint = Point{2,Int16}
+const AnchorPoint = Vec{2,Int16}
 
 struct MarkAnchor
   class::ClassID
@@ -275,12 +275,12 @@ pair_adjustment_positioning(table::PairAdjustmentTableFormat1) = PairAdjustmentP
 pair_adjustment_positioning(table::PairAdjustmentTableFormat2) = ClassPairAdjustmentPositioning(table)
 
 function GlyphOffset(value::ValueRecord)
-  origin = Point{2,Int16}(something(value.x_placement, 0), something(value.y_placement, 0))
-  advance = Point{2,Int16}(something(value.x_advance, 0), something(value.y_advance, 0))
+  origin = Vec{2,Int16}(something(value.x_placement, 0), something(value.y_placement, 0))
+  advance = Vec{2,Int16}(something(value.x_advance, 0), something(value.y_advance, 0))
   GlyphOffset(origin, advance)
 end
 
-AnchorPoint(table::AnchorTable) = Point(table.x_coordinate, table.y_coordinate)
+AnchorPoint(table::AnchorTable) = Vec(table.x_coordinate, table.y_coordinate)
 anchor_point(::Nothing) = nothing
 anchor_point(table::AnchorTable) = AnchorPoint(table)
 

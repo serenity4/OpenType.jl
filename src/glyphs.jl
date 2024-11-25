@@ -1,4 +1,4 @@
-const GlyphOutline = Vector{Point{2,Float64}}
+const GlyphOutline = Vector{Vec2}
 
 struct SimpleGlyph
     id::GlyphID
@@ -42,7 +42,7 @@ function logical_flags(glyph::SimpleGlyphTable)
 end
 
 struct GlyphPointInfo
-    coords::Point{2,Int16}
+    coords::Vec{2,Int16}
     on_curve::Bool
 end
 
@@ -69,7 +69,7 @@ function extract_points(glyph::SimpleGlyphTable)
             Y_SHORT_VECTOR_BIT in flag && Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR_BIT ∉ flag && (offset = -offset)
             i == 1 ? offset : points[i-1].coords[2] + offset
         end
-        points[i] = GlyphPointInfo(Point(x, y), ON_CURVE_POINT_BIT in flag)
+        points[i] = GlyphPointInfo(Vec(x, y), ON_CURVE_POINT_BIT in flag)
     end
     points
 end
@@ -144,7 +144,7 @@ end
 Return a list of quadratic Bézier curves corresponding to the glyph's outlines.
 """
 function curves(outlines)
-    curves = SVector{3,Point2}[]
+    curves = Vec{3,Vec2}[]
     for outline in outlines
         patch = Patch{BezierCurve,3}(outline)
         patch = decompactify(patch)
