@@ -140,15 +140,6 @@ function read_glyphs(data::OpenTypeData)
     glyphs
 end
 
-function normalize(outlines, header::GlyphHeader)
-    min = Point(header.xmin, header.ymin)
-    max = Point(header.xmax, header.ymax)
-    from = Box(min, max)
-    to = Box(Point{2,Int16}(0, 0), Point{2,Int16}(1, 1))
-    transf = BoxTransform(from, to)
-    map(points -> transf.(points), outlines)
-end
-
 """
 Return a list of quadratic Bézier curves corresponding to the glyph's outlines.
 """
@@ -166,4 +157,3 @@ end
 
 curves(glyph::SimpleGlyph) = curves(glyph.outlines)
 curves(glyph::CompositeGlyph) = error("Composite glyphs are not supported yet.")
-curves_normalized(glyph::SimpleGlyph) = curves(normalize(glyph.outlines, glyph.header))
