@@ -20,7 +20,7 @@ function tryparse_color(value::AbstractString)
   end
 end
 
-function CharacterStyle(annotations::AbstractVector{<:Pair{Symbol}})
+function CharacterStyle(annotations::AbstractVector{@NamedTuple{label::Symbol, value::Any}})
   size = font = nothing
   face = getface(annotations)
   color = extract_color(face.foreground)

@@ -1,5 +1,5 @@
 using OpenType, Test
-using OpenType: Text, lines, extract_style_from_text, CharacterStyle, hb_shape, Vec, Vec2, cm
+using OpenType: Text, lines, extract_style_from_text, CharacterStyle, hb_shape, Vec, Vec2
 using BinaryParsingTools
 using GeometryExperiments: Point2
 using Accessors: @set, @reset
