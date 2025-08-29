@@ -63,24 +63,23 @@
   file = google_font_files["inter"][1]
   font = OpenTypeFont(file);
   options = FontOptions(ShapingOptions(tag"latn", tag"fra "), FontSize(1/10; reduce_to_fit = false))
-  t = Text("The brown fox jumps over the lazy dog.", TextOptions())
-  ls = lines(t, [font => options])
-  @test length(ls) == 1
-  line = ls[1]
-  @test length(line.glyphs) == length(t.chars)
+  text = Text("The brown fox jumps over the lazy dog.", TextOptions())
+  parsed = ParsedText(text, [font => options])
+  @test length(parsed.lines) == 1
+  line = parsed.lines[1]
+  @test length(line.glyphs) == length(text.chars)
   @test length(line.segments) == 1
   segment = line.segments[1]
   @test sprint(show, MIME"text/plain"(), segment) isa String
-  @test segment.indices == eachindex(t.chars)
-  box = text_geometry(t, [font => options])
-  @test box.min === Point2(0, 0)
-  @test 1.82 < box.max[1] < 1.83
-  @test 0.096 < box.max[2] < 0.097
+  @test segment.indices == eachindex(text.chars)
+  @test parsed.geometry.min === Point2(0, 0)
+  @test 1.82 < parsed.geometry.max[1] < 1.83
+  @test 0.096 < parsed.geometry.max[2] < 0.097
 
-  t = Text(styled"The {bold:brown} {red:fox {italic:jumps}} over the {italic:lazy} dog.", TextOptions())
-  box2 = text_geometry(t, [font => options])
-  @test box == box2
-  line = only(lines(t, [font => options]))
+  text = Text(styled"The {bold:brown} {red:fox {italic:jumps}} over the {italic:lazy} dog.", TextOptions())
+  parsed2 = ParsedText(text, [font => options])
+  @test parsed.geometry == parsed2.geometry
+  line = only(parsed2.lines)
   @test length(line.segments) == 8
   a, b, c, d, e, f, g, h = line.segments
   test_style_equals(x, y) = for prop in fieldnames(GlyphStyle); prop ≠ :size && @test getproperty(x, prop) == getproperty(y, prop); end
@@ -98,8 +97,9 @@
 
   file = google_font_files["spacemono"][1]
   font = OpenTypeFont(file);
-  t = Text(styled"{size=20:Some{size=100: big }text.}", TextOptions())
-  line = only(lines(t, [font => options]))
+  text = Text(styled"{size=20:Some{size=100: big }text.}", TextOptions())
+  parsed = ParsedText(text, [font => options])
+  line = only(parsed.lines)
   @test length(line.segments) == 3
   a, b, c = line.segments
   @test a.style.size === c.style.size

@@ -250,6 +250,31 @@ end
 
 Base.show(io::IO, line::Line) = print(io, Line, '(', length(line.glyphs), " glyphs, ", length(line.segments), " segments)")
 
+struct ParsedText
+  lines::Vector{Line}
+  spacings::Vector{Float64}
+  geometry::Optional{Box2}
+end
+
+function ParsedText(text::Text, fonts)
+  lines = parse_lines(text, fonts)
+  spacings = compute_line_spacings(lines, text.options)
+  geometry = compute_text_geometry(text, lines, spacings)
+  return ParsedText(lines, spacings, geometry)
+end
+
+function compute_line_spacings(lines, options::TextOptions)
+  spacings = Float64[0.0]
+  for i in eachindex(lines)[begin:(end - 1)]
+    prev = lines[i]
+    next = lines[i + 1]
+    height = ascender(next) - descender(prev)
+    spacing = height * options.line_spacing
+    push!(spacings, spacing)
+  end
+  return spacings
+end
+
 function segment_geometry(line::Line, segment::LineSegment)
   isempty(segment.indices) && return nothing
   ymin = descender(segment)
@@ -257,7 +282,7 @@ function segment_geometry(line::Line, segment::LineSegment)
   xmin, _ = line.positions[first(segment.indices)]
   width = sum(first, @view line.advances[segment.indices]; init = 0.0)
   xmax = xmin + width
-  Box(Point2(xmin, ymin), Point2(xmax, ymax))
+  return Box(Point2(xmin, ymin), Point2(xmax, ymax))
 end
 
 function line_geometry(line::Line)
@@ -267,7 +292,7 @@ function line_geometry(line::Line)
   ymax = ascender(line)
   width = sum(first, line.advances; init = 0.0)
   xmax = xmin + width
-  Box(Point2(xmin, ymin), Point2(xmax, ymax))
+  return Box(Point2(xmin, ymin), Point2(xmax, ymax))
 end
 
 function has_outlines(line::Line, segment::LineSegment)
@@ -277,13 +302,13 @@ function has_outlines(line::Line, segment::LineSegment)
     outlines = line.outlines[glyph]
     !isempty(outlines) && return true
   end
-  false
+  return false
 end
 
 ascender(line::Line) = maximum(ascender, line.segments; init = 0.0)
 descender(line::Line) = maximum(descender, line.segments; init = 0.0)
 
-function split_lines(text::Text)
+function split_text_into_lines(text::Text)
   newlines = findall(==('\n'), text.chars)
   push!(newlines, 1 + lastindex(text.chars))
   lines = SplitLine[]
@@ -291,15 +316,14 @@ function split_lines(text::Text)
   for i in newlines
     range = (prev + 1):(i - 1)
     prev = i
-    isempty(range) && continue
     push!(lines, SplitLine(text.chars[range], range.start, text.style_changes))
   end
-  lines
+  return lines
 end
 
-function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}})
+function parse_lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}})
   lines = Line[]
-  for line in split_lines(text)
+  for line in split_text_into_lines(text)
     glyph_indices = Dict{Pair{GlyphID, OpenTypeFont}, Int64}()
     line_glyphs, line_positions, line_advances = GlyphID[], Vec2[], Vec2[]
     outlines = Vector{GlyphOutline}[]
@@ -327,7 +351,7 @@ function lines(text::Text, fonts::AbstractVector{Pair{OpenTypeFont, FontOptions}
     end
     push!(lines, Line(line_glyphs, line_positions, line_advances, segments, outlines))
   end
-  lines
+  return lines
 end
 
 function compute_positions(offsets, start, scale)
@@ -336,19 +360,15 @@ function compute_positions(offsets, start, scale)
     push!(positions, start .+ offset.origin .* scale)
     start = start .+ offset.advance .* scale
   end
-  positions
+  return positions
 end
 
-text_geometry(text::Text, fonts) = text_geometry(text, lines(text, fonts))
-
-function text_geometry(text::Text, lines::AbstractVector{Line})
+function compute_text_geometry(text::Text, lines::AbstractVector{Line}, spacings::Vector{Float64})
   result = nothing
-  for line in lines
+  for (line, spacing) in zip(lines, spacings)
     geometry = line_geometry(line)
-    if !isnothing(result)
-      geometry -= Vec2(0.0, text.options.line_spacing * result.height)
-    end
-    result = isnothing(result) ? geometry : boundingelement(result, geometry)
+    geometry === nothing && continue
+    result = result == nothing ? geometry : boundingelement(result, @set geometry -= Vec2(0, spacing))
   end
-  result
+  return result
 end

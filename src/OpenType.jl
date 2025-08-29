@@ -15,6 +15,7 @@ using .Meta: isexpr
 
 const Vec = SVector
 const Vec2 = SVector{2,Float64}
+const Box2 = Box{2,Float64}
 
 @reexport import GeometryExperiments: boundingelement
 @reexport using BinaryParsingTools: Tag, @tag_str, @tag2_str, @tag3_str, @tag4_str, Tag2, Tag3, Tag4
@@ -88,9 +89,8 @@ export GlyphID,
 
   Line, LineSegment,
   ascender, descender,
-  segment_geometry, segment_height, line_geometry, text_geometry,
-  has_outlines,
-  lines,
+  segment_geometry, segment_height, line_geometry,
+  has_outlines, ParsedText,
   GlyphStyle
 
 end
